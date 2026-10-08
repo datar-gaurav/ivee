@@ -14,6 +14,7 @@
 # phonemes on the device, so it needs no training but is less accurate.
 # The OTA URL defaults to http://$SERVER_LAN_IP:$SERVER_HTTP_PORT/xiaozhi/ota/ from server/.env.
 # Then flash: ./firmware/build.sh --flash [port]
+# Speel's faces (firmware/faces/*.gif) replace upstream's emoji in the assets partition.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,6 +26,40 @@ BOARD=waveshare/esp32-s3-touch-amoled-2.16
 LANGUAGE=en-US
 
 die() { printf '\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
+
+# Rebuild upstream's assets.bin with Speel's faces as the emoji collection.
+# Reuses upstream's exact asset command from the last build (fonts, wake-word
+# models, size cap) and swaps only --emoji_collection, so no upstream file changes.
+pack_faces() {
+  python - "$REPO_DIR/firmware/faces" <<'PY'
+import shlex, shutil, subprocess, sys
+from pathlib import Path
+faces = Path(sys.argv[1])
+stage = Path("build/sparky-faces")
+shutil.rmtree(stage, ignore_errors=True)
+stage.mkdir(parents=True)
+for gif in faces.glob("*.gif"):
+    shutil.copy(gif, stage / gif.name)
+for line in (faces / "aliases.txt").read_text().splitlines():
+    if line.strip() and not line.startswith("#"):
+        alias, face = line.split()
+        shutil.copy(faces / f"{face}.gif", stage / f"{alias}.gif")
+
+commands = subprocess.run(
+    ["ninja", "-C", "build", "-t", "commands", "generated_default_assets"],
+    capture_output=True, text=True, check=True).stdout
+cmd = next(l for l in reversed(commands.splitlines()) if "build_default_assets.py" in l)
+tokens = shlex.split(cmd)
+start = next(i for i, t in enumerate(tokens) if t.endswith("build_default_assets.py"))
+args = tokens[start + 1:]
+args[args.index("--emoji_collection") + 1] = str(stage.resolve())
+output = Path(args[args.index("--output") + 1])
+subprocess.run([sys.executable, tokens[start], *args], check=True, stdout=subprocess.DEVNULL)
+if b"neutral.gif" not in output.read_bytes():
+    sys.exit(f"{output} doesn't contain Speel's faces")
+print(f"Packed {len(list(stage.glob('*.gif')))} faces into {output}")
+PY
+}
 
 [[ -f "$IDF_PATH/export.sh" ]] || die "ESP-IDF not found at $IDF_PATH (set IDF_PATH)."
 # shellcheck disable=SC1091
@@ -39,12 +74,15 @@ cd "$FIRMWARE_DIR"
 
 case "${1:-}" in
   "" | -h | --help)
-    sed -n '2,17p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    sed -n '2,18p' "${BASH_SOURCE[0]}"; exit 0 ;;
   --list-wake-words)
     python scripts/build.py --list-wake-words; exit 0 ;;
   --flash)
     port="${2:-$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)}"
     [[ -n "$port" ]] || die "No /dev/cu.usbmodem* found. Plug the board in with a data cable."
+    # Build first so flash has nothing left to regenerate, then re-pack the faces.
+    idf.py build >/dev/null
+    pack_faces
     idf.py -p "$port" flash monitor; exit 0 ;;
 esac
 
@@ -99,4 +137,5 @@ if [[ -n "$custom_phrase" ]]; then
 fi
 
 grep -q "CONFIG_OTA_URL=\"$ota_url\"" sdkconfig || die "sdkconfig doesn't have our OTA URL; don't flash this build."
+pack_faces
 echo "Built. OTA URL confirmed in sdkconfig. Flash with: ./firmware/build.sh --flash"

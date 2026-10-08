@@ -1,0 +1,12 @@
+# <emotion the server sends> <face GIF to show>
+funny       laughing
+crying      sad
+angry       confused
+shocked     surprised
+relaxed     happy
+cool        happy
+confident   happy
+delicious   happy
+winking     silly
+embarrassed silly
+kissy       loving
