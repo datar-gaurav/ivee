@@ -39,6 +39,7 @@ exit_commands:
   - "stop"
 
 wakeup_words:
+  - "hi speel"
   - "hey sparky"
   - "hi sparky"
   - "sparky"
