@@ -3,7 +3,7 @@
 #
 # Lean by design: no Docker, no web console, no database. Runs:
 #   - sparky-server.service : xiaozhi-esp32-server core (WebSocket :8000, OTA :8003)
-#   - sparky-tts.service    : Piper HTTP TTS on 127.0.0.1:5000
+#   - sparky-tts.service    : Speel's voice, Kokoro TTS on 127.0.0.1:$TTS_PORT (server/tts/speel_tts.py)
 #
 # Prereqs: Debian 12/13 (no desktop), this repo cloned to /opt/sparky/repo,
 #          server/.env filled in (cp server/.env.example server/.env).
@@ -27,7 +27,7 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-: "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}" "${PIPER_VOICE:?}"
+: "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}"
 
 log "Checking hardware"
 mem_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
@@ -80,12 +80,11 @@ if ! "$PREFIX/venv-server/bin/python" -c "import torch; torch.zeros(1); import s
   die "torch/silero failed to load (possibly 'Illegal instruction' on this CPU). See docs/troubleshooting in README."
 fi
 
-log "Creating Piper TTS venv and downloading voice ${PIPER_VOICE}"
+log "Creating TTS venv and downloading Kokoro models"
 [[ -d "$PREFIX/venv-tts" ]] || uv venv --python 3.10 "$PREFIX/venv-tts"
-uv pip install --python "$PREFIX/venv-tts/bin/python" "piper-tts[http]"
-if [[ ! -f "$PREFIX/voices/${PIPER_VOICE}.onnx" ]]; then
-  "$PREFIX/venv-tts/bin/python" -m piper.download_voices --data-dir "$PREFIX/voices" "$PIPER_VOICE"
-fi
+# piper-tts only for its bundled espeak-ng phonemizer; Kokoro does the speaking.
+uv pip install --python "$PREFIX/venv-tts/bin/python" piper-tts kokoro-onnx
+python3 "$REPO_DIR/server/tts/fetch_models.py" "$PREFIX/voices"
 
 log "Rendering Sparky config and copying Sparky providers into the server"
 python3 "$REPO_DIR/server/scripts/render_config.py" --env "$ENV_FILE" --out "$APP_DIR/data"
@@ -96,7 +95,9 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$PREFIX"
 log "Installing systemd units"
 for unit in sparky-tts.service sparky-server.service; do
   sed -e "s|@PREFIX@|$PREFIX|g" -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@USER@|$SERVICE_USER|g" \
-      -e "s|@PIPER_VOICE@|$PIPER_VOICE|g" \
+      -e "s|@REPO_DIR@|$REPO_DIR|g" -e "s|@TTS_PORT@|${TTS_PORT:-5000}|g" \
+      -e "s|@TTS_VOICE@|${TTS_VOICE:-am_puck}|g" -e "s|@TTS_SPEED@|${TTS_SPEED:-0.9}|g" \
+      -e "s|@TTS_PITCH@|${TTS_PITCH:-1}|g" -e "s|@TTS_BOOST@|${TTS_BOOST:-2.5}|g" \
       "$REPO_DIR/server/systemd/$unit" > "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
@@ -111,7 +112,7 @@ for _ in $(seq 1 60); do
 done
 
 if curl -fsS -o /tmp/sparky-tts-test.wav -X POST -H 'Content-Type: application/json' \
-     -d '{"text":"Hi! I am Sparky."}' http://127.0.0.1:5000/synthesize; then
+     -d '{"text":"Hi! I am Speel."}' "http://127.0.0.1:${TTS_PORT:-5000}/synthesize"; then
   echo "TTS OK ($(stat -c%s /tmp/sparky-tts-test.wav) bytes)"
 else
   echo "TTS check failed: journalctl -u sparky-tts -n 50"

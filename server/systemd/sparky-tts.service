@@ -1,14 +1,17 @@
 [Unit]
-Description=Sparky local text-to-speech (Piper HTTP server)
+Description=Speel's voice: local Kokoro text-to-speech (server/tts/speel_tts.py)
 After=network.target
 
 [Service]
 Type=simple
 User=@USER@
-ExecStart=@PREFIX@/venv-tts/bin/python -m piper.http_server --host 127.0.0.1 --port 5000 --data-dir @PREFIX@/voices -m @PIPER_VOICE@
+ExecStart=@PREFIX@/venv-tts/bin/python @REPO_DIR@/server/tts/speel_tts.py --host 127.0.0.1 --port @TTS_PORT@ \
+  --model @PREFIX@/voices/kokoro-v1.0.onnx --voices @PREFIX@/voices/voices-v1.0.bin \
+  --voice @TTS_VOICE@ --speed @TTS_SPEED@ --pitch @TTS_PITCH@ --boost @TTS_BOOST@
 Restart=always
 RestartSec=5
-MemoryMax=400M
+# Kokoro's model is ~325 MB on disk and ~600 MB resident.
+MemoryMax=900M
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full

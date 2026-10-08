@@ -12,7 +12,7 @@ Sparky is a voice AI companion for a 4-year-old. The project is "Sparky"; the ch
 ESP32 ⇄ WebSocket/Opus ⇄ xiaozhi-esp32-server (lean, no Docker, on HP)
   → STT: Groq whisper-large-v3-turbo
   → LLM: Groq (`GROQ_LLM_MODEL`), with a manual switch to Mac Ollama
-  → TTS: local Piper HTTP (127.0.0.1:5000/synthesize)
+  → TTS: local Kokoro HTTP (`server/tts/speel_tts.py`, 127.0.0.1:$TTS_PORT/synthesize), voice `am_puck`
 
 Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at the pinned `XIAOZHI_SERVER_REF` into /opt/sparky. Our only touchpoint is `data/.config.yaml` (an overlay merged over upstream `config.yaml`) plus `data/sparky-base-prompt.txt`, both rendered by `server/scripts/render_config.py`. The one addition: `server/providers/` is copied into upstream's `core/providers/` (new files only, never edits to upstream files).
 
@@ -20,7 +20,8 @@ Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at th
 - `persona/identity.md` — who Sparky is (becomes `prompt:`)
 - `persona/base-prompt-template.txt` — Jinja system-prompt wrapper with the safety rules (`{{base_prompt}}`, `emoji_enabled`, `{{emojiList}}` come from upstream)
 - `server/config/config.template.yaml` — overlay template, `{{PLACEHOLDERS}}` from `server/.env`
-- `server/install-hp.sh` — idempotent installer (uv, Python 3.10, CPU-only torch, Piper, systemd)
+- `server/install-hp.sh` — idempotent installer (uv, Python 3.10, CPU-only torch, Kokoro TTS, systemd)
+- `server/tts/` — Speel's voice service (Kokoro + Piper's espeak phonemizer) and its checksum-verified model download
 - `server/systemd/*.service` — templated units (`@PREFIX@` etc.)
 - `server/providers/asr/sparky_groq.py` — Groq Whisper with a fixed `language` (upstream's sends none)
 - `server/providers/llm/sparky_groq/` — Groq LLM with `reasoning_effort: low`, and upstream's Chinese few-shot examples translated to English (otherwise Speel answers in Chinese)
@@ -38,6 +39,7 @@ Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at th
 - [ ] Verify torch 2.2.2 CPU wheel runs on the no-AVX Celeron (the installer smoke-tests it). If not, switch Silero VAD to ONNX or try a different torch build.
 - [ ] Upstream has no automatic LLM fallback. Switching to Mac Ollama is manual (`LLM_MODULE`). An automatic Groq → Ollama failover on 429 would be a small provider wrapper.
 - [ ] English wake word: pick a model via `scripts/build.py --list-wake-words` and test it with the child's voice.
+- [ ] Time Kokoro TTS on the Celeron (`curl` the /synthesize endpoint). If a sentence takes more than ~1.5 s, go back to Piper there (the Piper setup is in git history before the Kokoro switch).
 - [ ] Turn on `server.auth` before anything is exposed beyond the LAN.
 - [ ] Phase 2: port the server protocol to Cloudflare Workers + Durable Objects + Workers AI (free 10K neurons/day ≈ 400–500 conversations), which removes the hardware dependency.
 

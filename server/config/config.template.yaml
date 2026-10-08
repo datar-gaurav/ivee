@@ -118,14 +118,15 @@ LLM:
     base_url: {{OLLAMA_BASE_URL}}
 
 TTS:
-  # Local Piper HTTP server (see server/systemd/sparky-tts.service).
+  # Speel's voice: local Kokoro HTTP service (server/tts/speel_tts.py,
+  # server/systemd/sparky-tts.service). Voice, speed and pitch come from .env.
+  # The block keeps its old name so selected_module doesn't change.
   PiperTTS:
     type: custom
     method: POST
     url: "http://127.0.0.1:{{TTS_PORT}}/synthesize"
     params:
       text: "{prompt_text}"
-      length_scale: 1.1      # slightly slower speech for a young listener
     headers: {}
     format: wav
     output_dir: tmp/

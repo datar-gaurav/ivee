@@ -2,7 +2,7 @@
 # Run Sparky's server on a MacBook (Apple Silicon) in the foreground, for testing.
 #
 # Same stack as the HP install: upstream xiaozhi-esp32-server at the pinned ref
-# + local Piper TTS, configured by our overlay. No sudo, no launchd; Ctrl-C stops
+# + local Kokoro TTS (server/tts/speel_tts.py), configured by our overlay. No sudo, no launchd; Ctrl-C stops
 # everything. Everything lives under ~/.sparky (delete it to start over).
 #
 # Prereqs: Homebrew, server/.env filled in (SERVER_LAN_IP = this Mac's Wi-Fi IP).
@@ -24,7 +24,7 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-: "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}" "${PIPER_VOICE:?}" "${SERVER_LAN_IP:?}"
+: "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}" "${SERVER_LAN_IP:?}"
 
 SERVER_WS_PORT="${SERVER_WS_PORT:-8000}"
 SERVER_HTTP_PORT="${SERVER_HTTP_PORT:-8003}"
@@ -67,20 +67,21 @@ MAC_SKIP='^(vosk)[=<> ]'
 grep -Ev "$MAC_SKIP" "$APP_DIR/requirements.txt" > "$PREFIX/requirements-mac.txt"
 uv pip install --quiet --python "$PREFIX/venv-server/bin/python" -r "$PREFIX/requirements-mac.txt"
 
-log "Creating Piper TTS venv and downloading voice ${PIPER_VOICE}"
+log "Creating TTS venv and downloading Kokoro models"
 [[ -d "$PREFIX/venv-tts" ]] || uv venv --python 3.10 "$PREFIX/venv-tts"
-uv pip install --quiet --python "$PREFIX/venv-tts/bin/python" "piper-tts[http]"
-if [[ ! -f "$PREFIX/voices/${PIPER_VOICE}.onnx" ]]; then
-  "$PREFIX/venv-tts/bin/python" -m piper.download_voices --data-dir "$PREFIX/voices" "$PIPER_VOICE"
-fi
+# piper-tts only for its bundled espeak-ng phonemizer; Kokoro does the speaking.
+uv pip install --quiet --python "$PREFIX/venv-tts/bin/python" piper-tts kokoro-onnx
+python3 "$REPO_DIR/server/tts/fetch_models.py" "$PREFIX/voices"
 
 log "Rendering Sparky config and copying Sparky providers into the server"
 python3 "$REPO_DIR/server/scripts/render_config.py" --env "$ENV_FILE" --out "$APP_DIR/data"
 cp -R "$REPO_DIR/server/providers/." "$APP_DIR/core/providers/"
 
-log "Starting Piper TTS on 127.0.0.1:$TTS_PORT"
-"$PREFIX/venv-tts/bin/python" -m piper.http_server --host 127.0.0.1 --port "$TTS_PORT" \
-  --data-dir "$PREFIX/voices" -m "$PIPER_VOICE" &
+log "Starting Speel's voice (Kokoro ${TTS_VOICE:-am_puck}) on 127.0.0.1:$TTS_PORT"
+"$PREFIX/venv-tts/bin/python" "$REPO_DIR/server/tts/speel_tts.py" --host 127.0.0.1 --port "$TTS_PORT" \
+  --model "$PREFIX/voices/kokoro-v1.0.onnx" --voices "$PREFIX/voices/voices-v1.0.bin" \
+  --voice "${TTS_VOICE:-am_puck}" --speed "${TTS_SPEED:-0.9}" --pitch "${TTS_PITCH:-1}" \
+  --boost "${TTS_BOOST:-2.5}" &
 tts_pid=$!
 trap 'kill "$tts_pid" 2>/dev/null || true' EXIT
 
@@ -89,7 +90,7 @@ for _ in $(seq 1 30); do
     -d '{"text":"Hi! I am Speel."}' "http://127.0.0.1:$TTS_PORT/synthesize" 2>/dev/null && break
   sleep 1
 done
-[[ -s "$PREFIX/tts-test.wav" ]] || die "Piper didn't answer on :$TTS_PORT."
+[[ -s "$PREFIX/tts-test.wav" ]] || die "TTS didn't answer on :$TTS_PORT."
 echo "TTS OK. Hear it: afplay $PREFIX/tts-test.wav"
 
 cat <<EOF
