@@ -24,6 +24,7 @@ No web search, news, or role switching. Only exit and local music are enabled. F
 
 ## D6: Upstream not vendored; pinned by commit
 We only own an overlay config and the prompt files. Bumping `XIAOZHI_SERVER_REF` is a deliberate act.
+Exception: extra providers in `server/providers/`, which the installers copy into upstream's tree as new files. Upstream loads a provider by its `type:` name, so this needs no edits to upstream code. `sparky_groq` exists because upstream's `openai` ASR sends no `language` and Whisper heard the child as Japanese. Check it still matches upstream's ASR interface after bumping the ref.
 
 ## D7: Phase 2 target is Cloudflare
 Workers + Durable Objects (WebSocket sessions) + Workers AI (Whisper, MeloTTS, Llama). At about 20 neurons per exchange, the 10K/day free tier gives roughly 400–500 conversations. This needs a TypeScript port of the device protocol and WASM Opus handling. Benefits: no hardware, and the device works on any Wi-Fi.

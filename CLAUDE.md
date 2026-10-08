@@ -14,7 +14,7 @@ ESP32 ⇄ WebSocket/Opus ⇄ xiaozhi-esp32-server (lean, no Docker, on HP)
   → LLM: Groq (`GROQ_LLM_MODEL`), with a manual switch to Mac Ollama
   → TTS: local Piper HTTP (127.0.0.1:5000/synthesize)
 
-Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at the pinned `XIAOZHI_SERVER_REF` into /opt/sparky. Our only touchpoint is `data/.config.yaml` (an overlay merged over upstream `config.yaml`) plus `data/sparky-base-prompt.txt`, both rendered by `server/scripts/render_config.py`.
+Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at the pinned `XIAOZHI_SERVER_REF` into /opt/sparky. Our only touchpoint is `data/.config.yaml` (an overlay merged over upstream `config.yaml`) plus `data/sparky-base-prompt.txt`, both rendered by `server/scripts/render_config.py`. The one addition: `server/providers/asr/*.py` are copied into upstream's `core/providers/asr/` (new files only, never edits to upstream files).
 
 ## Layout
 - `persona/identity.md` — who Sparky is (becomes `prompt:`)
@@ -22,6 +22,7 @@ Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at th
 - `server/config/config.template.yaml` — overlay template, `{{PLACEHOLDERS}}` from `server/.env`
 - `server/install-hp.sh` — idempotent installer (uv, Python 3.10, CPU-only torch, Piper, systemd)
 - `server/systemd/*.service` — templated units (`@PREFIX@` etc.)
+- `server/providers/asr/sparky_groq.py` — Groq Whisper with a fixed `language` (upstream's sends none)
 - `server/scripts/backup-to-nas.sh` — config + logs to the NAS
 - `firmware/README.md` — building and flashing with our OTA URL
 - `docs/decisions.md` — why things are the way they are. Read it before changing direction.

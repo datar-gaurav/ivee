@@ -74,8 +74,9 @@ if [[ ! -f "$PREFIX/voices/${PIPER_VOICE}.onnx" ]]; then
   "$PREFIX/venv-tts/bin/python" -m piper.download_voices --data-dir "$PREFIX/voices" "$PIPER_VOICE"
 fi
 
-log "Rendering Sparky config into the server's data/ dir"
+log "Rendering Sparky config and copying Sparky providers into the server"
 python3 "$REPO_DIR/server/scripts/render_config.py" --env "$ENV_FILE" --out "$APP_DIR/data"
+cp "$REPO_DIR"/server/providers/asr/*.py "$APP_DIR/core/providers/asr/"
 
 log "Starting Piper TTS on 127.0.0.1:$TTS_PORT"
 "$PREFIX/venv-tts/bin/python" -m piper.http_server --host 127.0.0.1 --port "$TTS_PORT" \

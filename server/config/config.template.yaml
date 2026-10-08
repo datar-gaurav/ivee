@@ -32,11 +32,20 @@ tts_timeout: 15
 enable_greeting: true
 enable_wakeup_words_response_cache: false
 
+# Upstream strips punctuation and spaces from the transcript, then compares it
+# case-sensitively, so list each word with no spaces in both cases ("Good night." -> "Goodnight").
+# Anything longer ("bye Speel") is left to the LLM's exit tool.
 exit_commands:
   - "bye"
+  - "Bye"
+  - "byebye"
+  - "Byebye"
   - "goodbye"
-  - "good night"
+  - "Goodbye"
+  - "goodnight"
+  - "Goodnight"
   - "stop"
+  - "Stop"
 
 wakeup_words:
   - "hi speel"
@@ -82,7 +91,10 @@ Intent:
 
 ASR:
   GroqASR:
-    type: openai
+    # server/providers/asr/sparky_groq.py: upstream's openai ASR plus a fixed language,
+    # so Whisper doesn't guess (it once heard the child as Japanese).
+    type: sparky_groq
+    language: en
     api_key: {{GROQ_API_KEY}}
     base_url: https://api.groq.com/openai/v1/audio/transcriptions
     model_name: whisper-large-v3-turbo
