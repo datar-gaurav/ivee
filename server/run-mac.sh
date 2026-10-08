@@ -52,7 +52,11 @@ git -C "$SERVER_DIR" checkout --quiet "$XIAOZHI_SERVER_REF"
 log "Creating server venv (Python 3.10, as upstream recommends)"
 [[ -d "$PREFIX/venv-server" ]] || uv venv --python 3.10 "$PREFIX/venv-server"
 # macOS torch wheels are CPU/MPS only, so plain PyPI is fine here.
-uv pip install --quiet --python "$PREFIX/venv-server/bin/python" -r "$APP_DIR/requirements.txt"
+# Skip packages with no macOS arm64 wheels. They back optional providers that
+# upstream imports lazily, and Sparky doesn't select them.
+MAC_SKIP='^(vosk)[=<> ]'
+grep -Ev "$MAC_SKIP" "$APP_DIR/requirements.txt" > "$PREFIX/requirements-mac.txt"
+uv pip install --quiet --python "$PREFIX/venv-server/bin/python" -r "$PREFIX/requirements-mac.txt"
 
 log "Creating Piper TTS venv and downloading voice ${PIPER_VOICE}"
 [[ -d "$PREFIX/venv-tts" ]] || uv venv --python 3.10 "$PREFIX/venv-tts"
