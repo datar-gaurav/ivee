@@ -12,7 +12,7 @@
 # wn9_hijolly_tts2) or any English phrase (e.g. "hi speel"). A phrase uses
 # ESP-SR's MultiNet7 English command recognizer, which converts the text to
 # phonemes on the device, so it needs no training but is less accurate.
-# The OTA URL defaults to http://$SERVER_LAN_IP:8003/xiaozhi/ota/ from server/.env.
+# The OTA URL defaults to http://$SERVER_LAN_IP:$SERVER_HTTP_PORT/xiaozhi/ota/ from server/.env.
 # Then flash: ./firmware/build.sh --flash [port]
 set -euo pipefail
 
@@ -54,7 +54,8 @@ if [[ -z "$ota_url" ]]; then
   [[ -f "$REPO_DIR/server/.env" ]] || die "Pass an OTA URL or create server/.env."
   SERVER_LAN_IP="$(sed -n 's/^SERVER_LAN_IP=//p' "$REPO_DIR/server/.env" | tr -d "\"'")"
   [[ -n "$SERVER_LAN_IP" ]] || die "SERVER_LAN_IP is empty in server/.env."
-  ota_url="http://$SERVER_LAN_IP:8003/xiaozhi/ota/"
+  SERVER_HTTP_PORT="$(sed -n 's/^SERVER_HTTP_PORT=//p' "$REPO_DIR/server/.env" | tr -d "\"'")"
+  ota_url="http://$SERVER_LAN_IP:${SERVER_HTTP_PORT:-8003}/xiaozhi/ota/"
 fi
 [[ "$ota_url" == */xiaozhi/ota/ ]] || die "OTA URL should end in /xiaozhi/ota/ (got $ota_url)."
 

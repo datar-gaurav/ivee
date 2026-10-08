@@ -26,6 +26,15 @@ source "$ENV_FILE"
 set +a
 : "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}" "${PIPER_VOICE:?}" "${SERVER_LAN_IP:?}"
 
+SERVER_WS_PORT="${SERVER_WS_PORT:-8000}"
+SERVER_HTTP_PORT="${SERVER_HTTP_PORT:-8003}"
+TTS_PORT="${TTS_PORT:-5000}"
+for port in "$SERVER_WS_PORT" "$SERVER_HTTP_PORT" "$TTS_PORT"; do
+  if holder="$(lsof -nP -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1}')" && [[ -n "$holder" ]]; then
+    die "Port $port is already in use by $holder. Pick another port in server/.env (SERVER_WS_PORT / SERVER_HTTP_PORT / TTS_PORT)."
+  fi
+done
+
 wifi_ip="$(ipconfig getifaddr en0 || true)"
 if [[ -n "$wifi_ip" && "$wifi_ip" != "$SERVER_LAN_IP" ]]; then
   die "SERVER_LAN_IP=$SERVER_LAN_IP in server/.env, but this Mac's Wi-Fi IP is $wifi_ip. Update .env (the device is told this address)."
@@ -68,25 +77,25 @@ fi
 log "Rendering Sparky config into the server's data/ dir"
 python3 "$REPO_DIR/server/scripts/render_config.py" --env "$ENV_FILE" --out "$APP_DIR/data"
 
-log "Starting Piper TTS on 127.0.0.1:5000"
-"$PREFIX/venv-tts/bin/python" -m piper.http_server --host 127.0.0.1 --port 5000 \
+log "Starting Piper TTS on 127.0.0.1:$TTS_PORT"
+"$PREFIX/venv-tts/bin/python" -m piper.http_server --host 127.0.0.1 --port "$TTS_PORT" \
   --data-dir "$PREFIX/voices" -m "$PIPER_VOICE" &
 tts_pid=$!
 trap 'kill "$tts_pid" 2>/dev/null || true' EXIT
 
 for _ in $(seq 1 30); do
   curl -fsS -o "$PREFIX/tts-test.wav" -X POST -H 'Content-Type: application/json' \
-    -d '{"text":"Hi! I am Sparky."}' http://127.0.0.1:5000/synthesize 2>/dev/null && break
+    -d '{"text":"Hi! I am Speel."}' "http://127.0.0.1:$TTS_PORT/synthesize" 2>/dev/null && break
   sleep 1
 done
-[[ -s "$PREFIX/tts-test.wav" ]] || die "Piper didn't answer on :5000."
+[[ -s "$PREFIX/tts-test.wav" ]] || die "Piper didn't answer on :$TTS_PORT."
 echo "TTS OK. Hear it: afplay $PREFIX/tts-test.wav"
 
 cat <<EOF
 
 Starting Sparky server. Ctrl-C to stop.
-  OTA URL for the device : http://${SERVER_LAN_IP}:8003/xiaozhi/ota/
-  WebSocket              : ws://${SERVER_LAN_IP}:8000/xiaozhi/v1/
+  OTA URL for the device : http://${SERVER_LAN_IP}:${SERVER_HTTP_PORT}/xiaozhi/ota/
+  WebSocket              : ws://${SERVER_LAN_IP}:${SERVER_WS_PORT}/xiaozhi/v1/
   If macOS asks whether Python may accept incoming connections, click Allow.
 EOF
 

@@ -8,11 +8,11 @@
 
 server:
   ip: 0.0.0.0
-  port: 8000
-  http_port: 8003
+  port: {{SERVER_WS_PORT}}
+  http_port: {{SERVER_HTTP_PORT}}
   # Address the OTA endpoint hands to the device. Must be reachable from the device.
-  websocket: ws://{{SERVER_LAN_IP}}:8000/xiaozhi/v1/
-  vision_explain: http://{{SERVER_LAN_IP}}:8003/mcp/vision/explain
+  websocket: ws://{{SERVER_LAN_IP}}:{{SERVER_WS_PORT}}/xiaozhi/v1/
+  vision_explain: http://{{SERVER_LAN_IP}}:{{SERVER_HTTP_PORT}}/mcp/vision/explain
   timezone_offset: -7
   auth:
     # Turn on before exposing the server beyond your LAN.
@@ -107,7 +107,7 @@ TTS:
   PiperTTS:
     type: custom
     method: POST
-    url: "http://127.0.0.1:5000/synthesize"
+    url: "http://127.0.0.1:{{TTS_PORT}}/synthesize"
     params:
       text: "{prompt_text}"
       length_scale: 1.1      # slightly slower speech for a young listener

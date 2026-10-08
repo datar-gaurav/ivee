@@ -22,6 +22,14 @@ TEMPLATE = REPO / "server" / "config" / "config.template.yaml"
 IDENTITY = REPO / "persona" / "identity.md"
 BASE_PROMPT = REPO / "persona" / "base-prompt-template.txt"
 
+# Optional, with defaults. The device's firmware has the OTA URL (and so
+# SERVER_HTTP_PORT) compiled in; the WebSocket port it learns from OTA.
+DEFAULTS = {
+    "SERVER_WS_PORT": "8000",
+    "SERVER_HTTP_PORT": "8003",
+    "TTS_PORT": "5000",
+}
+
 REQUIRED = [
     "SERVER_LAN_IP",
     "GROQ_API_KEY",
@@ -59,7 +67,10 @@ def render(env: dict[str, str]) -> str:
     if env["LLM_MODULE"] not in {"GroqLLM", "MacOllamaLLM"}:
         sys.exit("LLM_MODULE must be GroqLLM or MacOllamaLLM")
 
-    values = dict(env)
+    values = {**DEFAULTS, **env}
+    for key in DEFAULTS:
+        if not values[key].isdigit():
+            sys.exit(f"{key} must be a port number")
     values["PERSONA_IDENTITY"] = indent(IDENTITY.read_text(), 2)
 
     def sub(match: re.Match[str]) -> str:
