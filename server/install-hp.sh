@@ -89,7 +89,7 @@ fi
 
 log "Rendering Sparky config and copying Sparky providers into the server"
 python3 "$REPO_DIR/server/scripts/render_config.py" --env "$ENV_FILE" --out "$APP_DIR/data"
-cp "$REPO_DIR"/server/providers/asr/*.py "$APP_DIR/core/providers/asr/"
+cp -R "$REPO_DIR/server/providers/." "$APP_DIR/core/providers/"
 
 chown -R "$SERVICE_USER:$SERVICE_USER" "$PREFIX"
 

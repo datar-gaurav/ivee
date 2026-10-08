@@ -102,7 +102,10 @@ ASR:
 
 LLM:
   GroqLLM:
-    type: openai
+    # server/providers/llm/sparky_groq/: upstream's openai LLM plus reasoning_effort.
+    # Also translates upstream's Chinese few-shot examples, which made replies Chinese.
+    type: sparky_groq
+    reasoning_effort: low
     base_url: https://api.groq.com/openai/v1
     model_name: {{GROQ_LLM_MODEL}}
     api_key: {{GROQ_API_KEY}}
