@@ -12,7 +12,7 @@ Use upstream [78/xiaozhi-esp32](https://github.com/78/xiaozhi-esp32). It include
 ./firmware/build.sh "hi speel"                 # or a model name, e.g. wn9_hijolly_tts2
 ./firmware/build.sh --flash                    # flash + serial monitor
 ```
-It pins the firmware commit, sets the OTA URL from `server/.env` (no menuconfig) and checks that the URL made it into `sdkconfig`. A phrase that isn't a model name uses MultiNet7 English with on-device phonemes. It needs no training, but it's less accurate than a trained WakeNet model, so test it with the child's voice.
+It pins the firmware commit, sets the OTA URL from `server/.env` (no menuconfig) and checks that the URL made it into `sdkconfig`. It also applies `firmware/patches/*.patch` to the checkout (currently one: always use the dark theme, so the black around Speel's face isn't white) and packs `firmware/faces/` into the assets partition. A phrase that isn't a model name uses MultiNet7 English with on-device phonemes. It needs no training, but it's less accurate than a trained WakeNet model, so test it with the child's voice.
 
 Known upstream quirk: the board's `config.json` sets `CONFIG_USE_DEVICE_AEC=y`, but the firmware Kconfig doesn't list this board for device AEC, so it's dropped. Result: half-duplex (the device doesn't listen while Sparky talks, so no barge-in). Fine for now.
 

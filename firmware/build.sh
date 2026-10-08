@@ -30,20 +30,15 @@ die() { printf '\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 # Rebuild upstream's assets.bin with Speel's faces as the emoji collection.
 # Reuses upstream's exact asset command from the last build (fonts, wake-word
 # models, size cap) and swaps only --emoji_collection, so no upstream file changes.
+# Aliases are extra index entries pointing at an existing GIF, so they cost no space.
+# Also sets hide_subtitle so no text covers the face.
 pack_faces() {
   python - "$REPO_DIR/firmware/faces" <<'PY'
-import shlex, shutil, subprocess, sys
+import contextlib, importlib.util, io, json, shlex, subprocess, sys
 from pathlib import Path
-faces = Path(sys.argv[1])
-stage = Path("build/sparky-faces")
-shutil.rmtree(stage, ignore_errors=True)
-stage.mkdir(parents=True)
-for gif in faces.glob("*.gif"):
-    shutil.copy(gif, stage / gif.name)
-for line in (faces / "aliases.txt").read_text().splitlines():
-    if line.strip() and not line.startswith("#"):
-        alias, face = line.split()
-        shutil.copy(faces / f"{face}.gif", stage / f"{alias}.gif")
+faces = Path(sys.argv[1]).resolve()
+aliases = [line.split() for line in (faces / "aliases.txt").read_text().splitlines()
+           if line.strip() and not line.startswith("#")]
 
 commands = subprocess.run(
     ["ninja", "-C", "build", "-t", "commands", "generated_default_assets"],
@@ -52,12 +47,36 @@ cmd = next(l for l in reversed(commands.splitlines()) if "build_default_assets.p
 tokens = shlex.split(cmd)
 start = next(i for i, t in enumerate(tokens) if t.endswith("build_default_assets.py"))
 args = tokens[start + 1:]
-args[args.index("--emoji_collection") + 1] = str(stage.resolve())
+args[args.index("--emoji_collection") + 1] = str(faces)
 output = Path(args[args.index("--output") + 1])
-subprocess.run([sys.executable, tokens[start], *args], check=True, stdout=subprocess.DEVNULL)
+
+spec = importlib.util.spec_from_file_location("build_default_assets", tokens[start])
+upstream = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(upstream)
+process_faces = upstream.process_emoji_collection
+def process_with_aliases(emoji_dir, assets_dir):
+    emoji = process_faces(emoji_dir, assets_dir)
+    files = {e["name"]: e["file"] for e in emoji}
+    return emoji + [{"name": alias, "file": files[face]} for alias, face in aliases]
+upstream.process_emoji_collection = process_with_aliases
+
+# Hide the subtitle bar so the face isn't covered by text. Upstream reads
+# "hide_subtitle" from the assets index.json at boot.
+write_index = upstream.generate_index_json
+def write_index_hiding_subtitles(assets_dir, *a, **kw):
+    write_index(assets_dir, *a, **kw)
+    index = Path(assets_dir) / "index.json"
+    data = json.loads(index.read_text())
+    data["hide_subtitle"] = True
+    index.write_text(json.dumps(data, indent=4, ensure_ascii=False))
+upstream.generate_index_json = write_index_hiding_subtitles
+sys.argv = [tokens[start], *args]
+with contextlib.redirect_stdout(io.StringIO()):
+    upstream.main()
+
 if b"neutral.gif" not in output.read_bytes():
     sys.exit(f"{output} doesn't contain Speel's faces")
-print(f"Packed {len(list(stage.glob('*.gif')))} faces into {output}")
+print(f"Packed {len(list(faces.glob('*.gif')))} faces + {len(aliases)} aliases into {output}")
 PY
 }
 
@@ -71,6 +90,12 @@ fi
 git -C "$FIRMWARE_DIR" fetch --quiet origin
 git -C "$FIRMWARE_DIR" checkout --quiet "$FIRMWARE_REF"
 cd "$FIRMWARE_DIR"
+# Our small upstream patches (firmware/patches/). Reset tracked files first so
+# re-running applies them cleanly; untracked files like sparky.json are kept.
+git checkout --quiet -- .
+for patch in "$REPO_DIR"/firmware/patches/*.patch; do
+  git apply "$patch" || die "Patch $(basename "$patch") no longer applies to $FIRMWARE_REF."
+done
 
 case "${1:-}" in
   "" | -h | --help)
