@@ -1,0 +1,21 @@
+[Unit]
+Description=Sparky voice server (xiaozhi-esp32-server core)
+After=network-online.target sparky-tts.service
+Wants=network-online.target sparky-tts.service
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@APP_DIR@
+ExecStart=@PREFIX@/venv-server/bin/python app.py
+Restart=always
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+# Keep a runaway process from taking the whole 2 GB box down.
+MemoryMax=1400M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

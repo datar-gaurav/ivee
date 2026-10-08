@@ -1,0 +1,17 @@
+[Unit]
+Description=Sparky local text-to-speech (Piper HTTP server)
+After=network.target
+
+[Service]
+Type=simple
+User=@USER@
+ExecStart=@PREFIX@/venv-tts/bin/python -m piper.http_server --host 127.0.0.1 --port 5000 --data-dir @PREFIX@/voices -m @PIPER_VOICE@
+Restart=always
+RestartSec=5
+MemoryMax=400M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

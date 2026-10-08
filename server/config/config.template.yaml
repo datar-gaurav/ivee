@@ -1,0 +1,117 @@
+# Sparky overlay for xiaozhi-esp32-server.
+#
+# This file is a TEMPLATE. Do not put secrets here.
+# `server/scripts/render_config.py` fills in the double-brace placeholders from server/.env
+# and the persona files, and writes the result to
+# <xiaozhi-server>/data/.config.yaml, which the server merges over its
+# upstream config.yaml (keys here win; anything not listed keeps upstream defaults).
+
+server:
+  ip: 0.0.0.0
+  port: 8000
+  http_port: 8003
+  # Address the OTA endpoint hands to the device. Must be reachable from the device.
+  websocket: ws://{{SERVER_LAN_IP}}:8000/xiaozhi/v1/
+  vision_explain: http://{{SERVER_LAN_IP}}:8003/mcp/vision/explain
+  timezone_offset: -7
+  auth:
+    # Turn on before exposing the server beyond your LAN.
+    enabled: false
+    allowed_devices: []
+
+log:
+  log_level: INFO
+  log_dir: tmp
+  log_file: "server.log"
+  data_dir: data
+
+delete_audio: true
+# Hang up after this many seconds of silence (saves Groq quota).
+close_connection_no_voice_time: 90
+tts_timeout: 15
+enable_greeting: true
+enable_wakeup_words_response_cache: false
+
+exit_commands:
+  - "bye"
+  - "goodbye"
+  - "good night"
+  - "stop"
+
+wakeup_words:
+  - "hey sparky"
+  - "hi sparky"
+  - "sparky"
+
+# Kid device: no third-party context injection.
+context_providers: []
+
+# --------------------------------------------------------------------------
+# Persona
+# --------------------------------------------------------------------------
+prompt: |
+{{PERSONA_IDENTITY}}
+
+# Rendered from persona/base-prompt-template.txt
+prompt_template: data/sparky-base-prompt.txt
+
+system_error_response: "Oops, Sparky's brain is taking a little nap. Let's try again in a minute!"
+
+end_prompt:
+  enable: true
+  prompt: |
+    Say a short, warm goodbye to the child in one sentence, like a friend who will see him again soon.
+
+# --------------------------------------------------------------------------
+# Pipeline
+# --------------------------------------------------------------------------
+selected_module:
+  VAD: SileroVAD
+  ASR: GroqASR
+  LLM: {{LLM_MODULE}}
+  VLLM: ChatGLMVLLM        # unused (board has no camera)
+  TTS: PiperTTS
+  Memory: nomem            # no long-term memory of the child, by design (see docs/decisions.md)
+  Intent: function_call
+
+Intent:
+  function_call:
+    type: function_call
+    # Exit + local music are loaded by default. No web search, news or role switching.
+    functions: []
+
+ASR:
+  GroqASR:
+    type: openai
+    api_key: {{GROQ_API_KEY}}
+    base_url: https://api.groq.com/openai/v1/audio/transcriptions
+    model_name: whisper-large-v3-turbo
+    output_dir: tmp/
+
+LLM:
+  GroqLLM:
+    type: openai
+    base_url: https://api.groq.com/openai/v1
+    model_name: {{GROQ_LLM_MODEL}}
+    api_key: {{GROQ_API_KEY}}
+    temperature: 0.6
+    max_tokens: 200
+  # Manual fallback: set LLM_MODULE=MacOllamaLLM in .env and re-render.
+  MacOllamaLLM:
+    type: ollama
+    model_name: {{OLLAMA_MODEL}}
+    base_url: {{OLLAMA_BASE_URL}}
+
+TTS:
+  # Local Piper HTTP server (see server/systemd/sparky-tts.service).
+  PiperTTS:
+    type: custom
+    method: POST
+    url: "http://127.0.0.1:5000/synthesize"
+    params:
+      text: "{prompt_text}"
+      length_scale: 1.1      # slightly slower speech for a young listener
+    headers: {}
+    format: wav
+    output_dir: tmp/
+    language: "English"

@@ -1,0 +1,14 @@
+# Secrets and rendered config
+server/.env
+*.config.yaml
+data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
