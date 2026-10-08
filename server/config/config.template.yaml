@@ -40,9 +40,8 @@ exit_commands:
 
 wakeup_words:
   - "hi speel"
-  - "hey sparky"
-  - "hi sparky"
-  - "sparky"
+  - "hey speel"
+  - "speel"
 
 # Kid device: no third-party context injection.
 context_providers: []
@@ -56,7 +55,7 @@ prompt: |
 # Rendered from persona/base-prompt-template.txt
 prompt_template: data/sparky-base-prompt.txt
 
-system_error_response: "Oops, Sparky's brain is taking a little nap. Let's try again in a minute!"
+system_error_response: "Oops, Speel's brain is taking a little nap. Let's try again in a minute!"
 
 end_prompt:
   enable: true

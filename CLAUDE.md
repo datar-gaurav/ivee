@@ -1,6 +1,6 @@
 # Sparky — context for Claude Code
 
-Sparky is a voice AI companion for a 4-year-old. Kid safety and low cost are the top two constraints; prefer boring, reliable choices.
+Sparky is a voice AI companion for a 4-year-old. The project is "Sparky"; the character the child talks to is **Speel** (wake phrase "hi speel"). Kid safety and low cost are the top two constraints; prefer boring, reliable choices.
 
 ## Hardware
 - **Face/voice device:** Waveshare ESP32-S3-Touch-AMOLED-2.16 (480×480 AMOLED, mic with AEC, speaker, IMU, button). Runs upstream xiaozhi-esp32 firmware (board `waveshare/esp32-s3-touch-amoled-2.16`, ESP-IDF ≥ 6.0.1).
