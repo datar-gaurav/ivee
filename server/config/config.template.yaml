@@ -1,7 +1,7 @@
-# Sparky overlay for the upstream server (ivee-esp32-server).
+# Ivee's overlay for the upstream server (xiaozhi-esp32-server, checked out as ivee-esp32-server).
 #
 # This file is a TEMPLATE. Do not put secrets here.
-# `server/scripts/render_config.py` fills in the double-brace placeholders from server/.env
+# `server/scripts/render_config.py` fills in the double-brace placeholders from ivee.env
 # and the persona files, and writes the result to
 # <ivee-esp32-server>/main/xiaozhi-server/data/.config.yaml, which the server merges over its
 # upstream config.yaml (keys here win; anything not listed keeps upstream defaults).
@@ -13,7 +13,7 @@ server:
   # Address the OTA endpoint hands to the device. Must be reachable from the device.
   websocket: ws://{{SERVER_LAN_IP}}:{{SERVER_WS_PORT}}/xiaozhi/v1/
   vision_explain: http://{{SERVER_LAN_IP}}:{{SERVER_HTTP_PORT}}/mcp/vision/explain
-  timezone_offset: -7
+  timezone_offset: {{TIMEZONE_OFFSET}}
   auth:
     # Turn on before exposing the server beyond your LAN.
     enabled: false
@@ -33,7 +33,7 @@ enable_greeting: true
 enable_wakeup_words_response_cache: false
 
 # Empty on purpose: upstream would hang up silently on these. Bye phrases go to
-# the LLM provider (sparky_groq), which says one of Speel's goodbyes, no Groq call.
+# the LLM provider (ivee_groq), which says one of Speel's goodbyes, no Groq call.
 exit_commands: []
 
 wakeup_words:
@@ -51,13 +51,13 @@ prompt: |
 {{PERSONA_IDENTITY}}
 
 # Rendered from persona/base-prompt-template.txt
-prompt_template: data/sparky-base-prompt.txt
+prompt_template: data/ivee-base-prompt.txt
 
 system_error_response: "Oops, Speel's brain is taking a little nap. Let's try again in a minute!"
 
 end_prompt:
   enable: true
-  # After the silence timeout. sparky_groq answers this marker with one of
+  # After the silence timeout. ivee_groq answers this marker with one of
   # Speel's goodbyes instead of asking Groq.
   prompt: "[[speel:goodbye]]"
 
@@ -87,9 +87,9 @@ Intent:
 
 ASR:
   GroqASR:
-    # server/providers/asr/sparky_groq.py: upstream's openai ASR plus a fixed language,
+    # server/providers/asr/ivee_groq.py: upstream's openai ASR plus a fixed language,
     # so Whisper doesn't guess (it once heard the child as Japanese).
-    type: sparky_groq
+    type: ivee_groq
     language: en
     # Context hint for Whisper: helps with a young child's speech and the name.
     prompt: "A young child talking to Speel, a friendly robot."
@@ -101,31 +101,35 @@ ASR:
 
 LLM:
   GroqLLM:
-    # server/providers/llm/sparky_groq/: upstream's openai LLM plus reasoning_effort.
+    # server/providers/llm/ivee_groq/: upstream's openai LLM plus reasoning_effort.
     # Also translates upstream's Chinese few-shot examples, which made replies Chinese.
-    type: sparky_groq
+    type: ivee_groq
     reasoning_effort: low
     # Groq limits each model separately: on a 429, answer with this model instead.
     fallback_model: {{GROQ_FALLBACK_MODEL}}
     # Send only the last N exchanges (upstream sends the whole session).
     max_history_turns: 6
-    # Tried first while reachable: Ollama on the MacBook (OLLAMA_MODEL=none to skip).
+    # Tried first while reachable: a local Ollama model (OLLAMA_MODEL=none to skip).
     local_model: {{OLLAMA_MODEL}}
     local_base_url: {{OLLAMA_BASE_URL}}/v1
+    # Then an extra OpenAI-compatible provider, if set (EXTRA_LLM_*); Groq answers when it can't.
+    extra_model: {{EXTRA_LLM_MODEL_OR_NONE}}
+    extra_base_url: {{EXTRA_LLM_BASE_URL_OR_NONE}}
+    extra_api_key: {{EXTRA_LLM_API_KEY_OR_NONE}}
     base_url: https://api.groq.com/openai/v1
     model_name: {{GROQ_LLM_MODEL}}
     api_key: {{GROQ_API_KEY}}
     temperature: 0.6
     max_tokens: 200
-  # Manual fallback: set LLM_MODULE=MacOllamaLLM in .env and re-render.
-  MacOllamaLLM:
+  # Ollama only, no Groq for replies: LLM_MODULE=OllamaLLM.
+  OllamaLLM:
     type: ollama
     model_name: {{OLLAMA_MODEL}}
     base_url: {{OLLAMA_BASE_URL}}
 
 TTS:
   # Speel's voice: local Kokoro HTTP service (server/tts/speel_tts.py,
-  # server/systemd/sparky-tts.service). Voice, speed and pitch come from .env.
+  # server/systemd/ivee-tts.service). Voice, speed and pitch come from ivee.env.
   # The block keeps its old name so selected_module doesn't change.
   PiperTTS:
     type: custom

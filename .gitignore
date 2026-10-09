@@ -1,5 +1,6 @@
-# Secrets and rendered config
+# Secrets and rendered config (settings normally live in /opt/ivee/config or ~/.ivee/config)
 server/.env
+ivee.env
 *.config.yaml
 data/
 

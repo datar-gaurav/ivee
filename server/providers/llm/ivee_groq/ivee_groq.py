@@ -1,7 +1,7 @@
 """Groq LLM tuned for an English-speaking child on Groq's free tier.
 
 Changes over upstream's `openai` LLM, which the installers copy into
-upstream's core/providers/llm/ and the config selects with `type: sparky_groq`:
+upstream's core/providers/llm/ and the config selects with `type: ivee_groq`:
 
 1. `reasoning_effort`. gpt-oss is a reasoning model and upstream can't pass
    this, so at default effort it spends max_tokens thinking and returns empty
@@ -25,10 +25,17 @@ upstream's core/providers/llm/ and the config selects with `type: sparky_groq`:
    (GOODBYE_MARKER, the config's end_prompt) get a random one with no Groq
    call; when the LLM itself calls the exit tool, its goodbye is replaced by
    one too. Upstream's exit_commands is empty so bye phrases reach us.
-7. Local model first. If `local_model` is set (Ollama on the MacBook, via its
+7. Local model first. If `local_model` is set (Ollama on a computer nearby, via its
    OpenAI-compatible /v1 API), it answers while reachable. If it's off or
    asleep, the 1 s connect timeout fails over to Groq and the local model is
    skipped for LOCAL_RETRY seconds before it's tried again.
+8. An extra provider before Groq. If `extra_model` and `extra_base_url` are set
+   (any OpenAI-compatible API, e.g. NVIDIA NIM or OpenRouter), it answers after
+   the local model and before Groq. On a rate limit, an outage or a rejected
+   request it's skipped (for the retry-after, else EXTRA_RETRY seconds) and
+   Groq answers.
+
+Order: local model, extra provider, Groq `model_name`, Groq `fallback_model`.
 """
 import copy
 import json
@@ -41,12 +48,12 @@ import openai
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall, ChoiceDeltaToolCallFunction
 
 from config.logger import setup_logging
-from core.providers import sparky_patches
+from core.providers import ivee_patches
 from core.providers.llm.openai.openai import LLMProvider as OpenAILLMProvider
 
 TAG = __name__
 logger = setup_logging()
-sparky_patches.apply()  # runtime fixes to upstream; see core/providers/sparky_patches.py
+ivee_patches.apply()  # runtime fixes to upstream; see core/providers/ivee_patches.py
 
 # Upstream's hardcoded Chinese strings (pinned IVEE_SERVER_REF) -> English.
 FEW_SHOT_ENGLISH = {
@@ -81,7 +88,7 @@ GOODBYES = [
     "Bye! Give your family a big hug from me!",
     "Goodbye, my friend! I'll be right here when you want to play again.",
     "Bye bye! Keep being awesome!",
-    "See you soon! Tell Mom or Dad one fun thing we talked about!",
+    "See you soon! Tell your family one fun thing we talked about!",
     "Bye! I had the best time playing with you!",
     "Toodle-oo! You're the best!",
     "Bye bye! I'll be dreaming about dinosaurs until next time!",
@@ -96,8 +103,11 @@ GOODBYE_MARKER = "[[speel:goodbye]]"  # end_prompt in config.template.yaml
 DEFAULT_RETRY_AFTER = 60  # seconds, when a 429 has no retry-after header
 MAX_RETRY_AFTER = 3600
 LOCAL_RETRY = 60  # seconds to skip the local model after it failed
+EXTRA_RETRY = 60  # seconds to skip the extra provider after an error without retry-after
 LOCAL_DOWN = (openai.APIConnectionError, openai.APITimeoutError, openai.NotFoundError,
               openai.InternalServerError, openai.RateLimitError)
+# The extra provider is optional, so any API failure falls through to Groq.
+EXTRA_DOWN = LOCAL_DOWN + (openai.APIStatusError,)
 
 
 def _english(text):
@@ -181,21 +191,31 @@ class LLMProvider(OpenAILLMProvider):
         self.max_history_turns = int(config.get("max_history_turns") or 0)
         self.fallback = None
         self.local = None
+        self.extra = None
         self.is_local = bool(config.get("is_local"))
+        self.is_extra = bool(config.get("is_extra"))
         self.blocked_until = 0.0  # skip this model until then (monotonic time)
         fallback_model = config.get("fallback_model")
         if fallback_model and fallback_model != self.model_name:
             self.fallback = LLMProvider({**config, "model_name": fallback_model, "fallback_model": None,
-                                         "local_model": None})
+                                         "local_model": None, "extra_model": None})
             # Switch to the fallback at once instead of the client's retry backoff.
             self.client = self.client.with_options(max_retries=0)
         local_model = config.get("local_model")
         if local_model and str(local_model).lower() != "none" and config.get("local_base_url"):
             self.local = LLMProvider({**config, "model_name": local_model, "base_url": config["local_base_url"],
                                       "api_key": "ollama", "reasoning_effort": None, "is_local": True,
-                                      "fallback_model": None, "local_model": None})
+                                      "fallback_model": None, "local_model": None, "extra_model": None})
             self.local.client = self.local.client.with_options(
                 max_retries=0, timeout=httpx.Timeout(30.0, connect=1.0))
+        extra_model = config.get("extra_model")
+        if extra_model and str(extra_model).lower() != "none" and config.get("extra_base_url"):
+            self.extra = LLMProvider({
+                **config, "model_name": extra_model, "base_url": config["extra_base_url"],
+                "api_key": config.get("extra_api_key") or "none", "is_extra": True,
+                "reasoning_effort": None, "fallback_model": None, "local_model": None, "extra_model": None})
+            self.extra.client = self.extra.client.with_options(
+                max_retries=0, timeout=httpx.Timeout(30.0, connect=3.0))
 
     # Upstream calls this on every request (streaming and function calling).
     def _apply_thinking_disabled(self, request_params: dict):
@@ -209,29 +229,35 @@ class LLMProvider(OpenAILLMProvider):
     def _stream(self, method, *args, **kwargs):
         """Stream from the first available model: local (if set), main, fallback.
         Returns False (with nothing yielded) when none can answer."""
-        chain = [m for m in (self.local, self, self.fallback) if m]
+        chain = [m for m in (self.local, self.extra, self, self.fallback) if m]
         for llm in chain:
             if time.monotonic() < llm.blocked_until:
                 continue
             started = False
+            errors = LOCAL_DOWN if llm.is_local else EXTRA_DOWN if llm.is_extra else openai.RateLimitError
             try:
                 for item in method(llm, *args, **kwargs):
                     started = True
                     yield item
                 return True
-            except LOCAL_DOWN if llm.is_local else openai.RateLimitError as e:
+            except errors as e:
                 if started:
                     raise
-                wait = LOCAL_RETRY if llm.is_local else _retry_after(e)
+                if llm.is_local:
+                    wait = LOCAL_RETRY
+                elif isinstance(e, openai.RateLimitError):
+                    wait = _retry_after(e)
+                else:
+                    wait = EXTRA_RETRY
                 llm.blocked_until = time.monotonic() + wait
                 logger.bind(tag=TAG).warning(
-                    f"{llm.model_name} unavailable ({type(e).__name__}); skipping it for {wait:.0f}s")
-        logger.bind(tag=TAG).warning("No model can answer (local down, Groq rate-limited); Speel is sleepy")
+                    f"{llm.model_name} unavailable ({type(e).__name__}: {str(e)[:120]}); skipping it for {wait:.0f}s")
+        logger.bind(tag=TAG).warning("No model can answer (local down, clouds rate-limited); Speel is sleepy")
         return False
 
     def response(self, session_id, dialogue, **kwargs):
         if _wants_goodbye(dialogue):
-            yield f"{sparky_patches.GOODBYE_EMOJI} {random.choice(GOODBYES)}"
+            yield f"{ivee_patches.GOODBYE_EMOJI} {random.choice(GOODBYES)}"
             return
         if not (yield from self._stream(OpenAILLMProvider.response, session_id, self._prepare(dialogue), **kwargs)):
             yield f"😴 {SLEEPY_LINE}"
@@ -239,7 +265,7 @@ class LLMProvider(OpenAILLMProvider):
     def response_with_functions(self, session_id, dialogue, functions=None, **kwargs):
         tools = _speel_tools(functions)
         if _wants_goodbye(dialogue):
-            yield from _say_and_exit(sparky_patches.GOODBYE_EMOJI, random.choice(GOODBYES), tools)
+            yield from _say_and_exit(ivee_patches.GOODBYE_EMOJI, random.choice(GOODBYES), tools)
             return
         stream = self._stream(OpenAILLMProvider.response_with_functions, session_id,
                               self._prepare(dialogue), tools, **kwargs)

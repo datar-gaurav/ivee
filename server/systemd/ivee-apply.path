@@ -1,0 +1,9 @@
+[Unit]
+Description=Apply Ivee's settings when the config page saves them
+
+[Path]
+PathModified=@PREFIX@/config/apply.request
+Unit=ivee-apply.service
+
+[Install]
+WantedBy=multi-user.target

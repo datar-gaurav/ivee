@@ -1,0 +1,21 @@
+[Unit]
+Description=Ivee's voice: local Kokoro text-to-speech (server/tts/speel_tts.py)
+After=network.target
+
+[Service]
+Type=simple
+User=@USER@
+# Voice, speed, pitch, EQ and port come from ivee.env (TTS_*).
+ExecStart=@PREFIX@/venv-tts/bin/python @REPO_DIR@/server/tts/speel_tts.py --host 127.0.0.1 \
+  --env @PREFIX@/config/ivee.env \
+  --model @PREFIX@/voices/kokoro-v1.0.onnx --voices @PREFIX@/voices/voices-v1.0.bin
+Restart=always
+RestartSec=5
+# Kokoro's model is ~325 MB on disk and ~600 MB resident.
+MemoryMax=900M
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target

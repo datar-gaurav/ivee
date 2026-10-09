@@ -1,7 +1,9 @@
 [Unit]
-Description=Ivee voice server (ivee-esp32-server core)
-After=network-online.target sparky-tts.service
-Wants=network-online.target sparky-tts.service
+Description=Ivee voice server (upstream xiaozhi-esp32-server, checked out as ivee-esp32-server)
+# Not started until the config page (or the installer) has rendered a config.
+ConditionPathExists=@APP_DIR@/data/.config.yaml
+After=network-online.target ivee-tts.service
+Wants=network-online.target ivee-tts.service
 
 [Service]
 Type=simple

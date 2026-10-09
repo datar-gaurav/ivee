@@ -1,0 +1,13 @@
+diff --git a/main/boards/common/wifi_board.cc b/main/boards/common/wifi_board.cc
+index 5b3721d..64ccf74 100644
+--- a/main/boards/common/wifi_board.cc
++++ b/main/boards/common/wifi_board.cc
+@@ -54,7 +54,7 @@ void WifiBoard::StartNetwork() {
+ 
+     // Initialize WiFi manager
+     WifiManagerConfig config;
+-    config.ssid_prefix = "Xiaozhi";
++    config.ssid_prefix = "Ivee";  // Ivee: hotspot "Ivee-XXXX" during Wi-Fi setup
+     config.language = Lang::CODE;
+     config.show_ota_config = true;
+     config.show_sleep_config = true;

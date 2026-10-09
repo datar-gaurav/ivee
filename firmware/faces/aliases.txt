@@ -1,5 +1,5 @@
 # <emotion the server sends> <face GIF to show>
-# The server normally sends <emotion>_01/_02/_03 (sparky_patches.py picks one at random).
+# The server normally sends <emotion>_01/_02/_03 (ivee_patches.py picks one at random).
 # These plain names are the fallback if it sends just <emotion>.
 angry       angry_01
 confident   confident_01

@@ -26,7 +26,22 @@ No web search, news, or role switching. Only exit and local music are enabled. F
 
 ## D6: Upstream not vendored; pinned by commit
 We only own an overlay config and the prompt files. Bumping `IVEE_SERVER_REF` is a deliberate act.
-Exception: extra providers in `server/providers/`, which the installers copy into upstream's tree as new files. Upstream loads a provider by its `type:` name, so this needs no edits to upstream code. `sparky_groq` exists because upstream's `openai` ASR sends no `language` and Whisper heard the child as Japanese. Check it still matches upstream's ASR interface after bumping the ref.
+Exception: extra providers in `server/providers/`, which the installers copy into upstream's tree as new files. Upstream loads a provider by its `type:` name, so this needs no edits to upstream code. `ivee_groq` exists because upstream's `openai` ASR sends no `language` and Whisper heard the child as Japanese. Check it still matches upstream's ASR interface after bumping the ref.
 
 ## D7: Phase 2 target is Cloudflare
 Workers + Durable Objects (WebSocket sessions) + Workers AI (Whisper, MeloTTS, Llama). At about 20 neurons per exchange, the 10K/day free tier gives roughly 400–500 conversations. This needs a TypeScript port of the device protocol and WASM Opus handling. Benefits: no hardware, and the device works on any Wi-Fi.
+
+## D8: Open source as "Ivee", MIT
+The project is Ivee and the character is Speel; services, folders and files use `ivee`. Everything, including the face art, is MIT like both upstream projects. Upstream names that are protocol or code (`/xiaozhi/ota/`, `/xiaozhi/v1/`, `main/xiaozhi-server`) stay, because renaming them means forking upstream.
+
+## D9: Native installer, not Docker
+`install.sh` installs with uv, venvs and systemd on any Debian-family box (x86_64 or arm64), as before. Docker adds memory and moving parts on a 2 GB machine, and upstream's images bundle much more than Ivee uses. Revisit if people ask for NAS/Unraid installs.
+
+## D10: Settings outside the repo, edited on a config page
+`/opt/ivee/config/ivee.env` (not `server/.env`), so `git pull` never touches them. The config page is stdlib Python (no venv, nothing to update) and password-protected. It runs as the `ivee` user and can't restart services itself: it writes `apply.request`, and a root `ivee-apply` path unit renders (as `ivee`) and restarts. The safety rules aren't editable there; only the character is.
+
+## D11: Prebuilt firmware, server URL entered on the device
+Installing ESP-IDF was the biggest hurdle for new users. Upstream's Wi-Fi setup page already has a Custom OTA URL field (enabled for Wi-Fi boards), stored in NVS, so one prebuilt firmware works for everyone. Releases are built in CI and flashed from the browser (ESP Web Tools). The compiled-in default is `http://ivee.local:8003/xiaozhi/ota/`, never upstream's cloud (D1): a device without our URL fails instead of phoning out. Changing faces or the wake word still needs `firmware/build.sh`.
+
+## D12: One generic extra provider, not provider-specific integrations
+Groq's free tier caps replies at roughly 150 a day per model. Other providers have bigger free quotas, but they change often and some (NVIDIA NIM) are for testing and evaluation only. Cerebras looked good until its large quota turned out not to be the free tier. So instead of integrating one company, there's one optional slot for any OpenAI-compatible API (`EXTRA_LLM_BASE_URL`, `EXTRA_LLM_MODEL`, `EXTRA_LLM_API_KEY`), tried before Groq. Any failure (rate limit, bad key, outage, rejected request) skips it for the retry-after or 60 s and Groq answers. Groq stays the documented default and is always required for speech-to-text.

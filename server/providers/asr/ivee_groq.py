@@ -8,7 +8,7 @@ Over upstream's `openai` ASR (which sends only the model):
 - Volume normalization: quiet clips (a child across the room) are scaled up to
   a fixed peak before upload; Whisper is more accurate on well-levelled audio.
 The installers copy this file into upstream's core/providers/asr/, and the
-config selects it with `type: sparky_groq`.
+config selects it with `type: ivee_groq`.
 """
 import asyncio
 import io

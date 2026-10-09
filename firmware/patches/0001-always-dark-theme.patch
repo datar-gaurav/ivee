@@ -7,7 +7,7 @@ index 3462ac0..d962006 100644
      // Load theme from settings
      Settings settings("display", false);
 -    std::string theme_name = settings.GetString("theme", "light");
-+    // Sparky: always dark. Black around the face is "off" on AMOLED; a saved
++    // Ivee: always dark. Black around the face is "off" on AMOLED; a saved
 +    // "light" from older firmware would otherwise win (every boot re-saves it).
 +    std::string theme_name = "dark";
      current_theme_ = LvglThemeManager::GetInstance().GetTheme(theme_name);

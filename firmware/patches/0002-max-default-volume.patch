@@ -7,7 +7,7 @@ index a267dbb..e01664f 100644
      int input_channels_ = 1;
      int output_channels_ = 1;
 -    int output_volume_ = 70;
-+    int output_volume_ = 100;  // Sparky: small speaker, max by default ("volume down" still works)
++    int output_volume_ = 100;  // Ivee: small speaker, max by default ("volume down" still works)
      float input_gain_ = 0.0;
  
      virtual int Read(int16_t* dest, int samples) = 0;

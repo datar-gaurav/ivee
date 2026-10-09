@@ -1,0 +1,19 @@
+[Unit]
+Description=Ivee config page (server/config_ui/ivee_config.py)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+ExecStart=/usr/bin/python3 @REPO_DIR@/server/config_ui/ivee_config.py serve --env @PREFIX@/config/ivee.env --port @UI_PORT@ --apply systemd
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=@PREFIX@/config
+
+[Install]
+WantedBy=multi-user.target

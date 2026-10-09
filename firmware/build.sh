@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# Build the upstream ESP32 firmware (checked out as ivee-esp32) for Sparky's board, pointed at Sparky's OTA URL.
+# Build Ivee's firmware: upstream xiaozhi-esp32 (checked out as ~/esp/ivee-esp32)
+# for the Waveshare ESP32-S3-Touch-AMOLED-2.16, with our patches and faces.
+# Most people don't need this: flash a prebuilt release from the browser (README).
 #
-# Checks out upstream firmware at FIRMWARE_REF, writes a `sparky.json` board
-# config (upstream config.json + our OTA URL) next to upstream's, and builds
-# with it, so the upstream checkout's own files stay untouched.
+# Checks out upstream firmware at FIRMWARE_REF, writes an `ivee.json` board
+# config (upstream config.json + our OTA URL and wake word) next to upstream's,
+# and builds with it, so the upstream checkout's own files stay untouched.
 #
 # Usage:
 #   ./firmware/build.sh --list-wake-words
-#   ./firmware/build.sh <wake-word> [ota-url]
+#   ./firmware/build.sh <wake-word> [ota-url]   then: ./firmware/build.sh --flash [port]
+#   ./firmware/build.sh --release <out-dir>     (what CI publishes: wake word "speel",
+#                                                default OTA URL, files for the web flasher)
 # <wake-word> is either a pre-trained WakeNet model from the list (e.g.
 # wn9_hijolly_tts2) or any English phrase (e.g. "speel"). A phrase uses
 # ESP-SR's MultiNet7 English command recognizer, which converts the text to
 # phonemes on the device, so it needs no training but is less accurate.
-# The OTA URL defaults to http://$SERVER_LAN_IP:$SERVER_HTTP_PORT/xiaozhi/ota/ from server/.env.
-# Then flash: ./firmware/build.sh --flash [port]
+# The OTA URL is only the device's default: the Wi-Fi setup page's "Custom OTA
+# URL" overrides it. It defaults to SERVER_LAN_IP/SERVER_HTTP_PORT from your
+# ivee.env (IVEE_ENV, else ~/.ivee or /opt/ivee), else DEFAULT_OTA_URL.
 # Speel's faces (firmware/faces/*.gif) replace upstream's emoji in the assets partition.
 set -euo pipefail
 
@@ -24,6 +29,8 @@ FIRMWARE_DIR="${FIRMWARE_DIR:-$HOME/esp/ivee-esp32}"
 IDF_PATH="${IDF_PATH:-$HOME/esp/esp-idf}"
 BOARD=waveshare/esp32-s3-touch-amoled-2.16
 LANGUAGE=en-US
+# Never upstream's cloud: a device that wasn't given our server's URL should fail, not phone out.
+DEFAULT_OTA_URL="http://ivee.local:8003/xiaozhi/ota/"
 
 die() { printf '\033[1;31mERROR: %s\033[0m\n' "$*" >&2; exit 1; }
 
@@ -84,12 +91,6 @@ PY
 # shellcheck disable=SC1091
 . "$IDF_PATH/export.sh" >/dev/null
 
-# Earlier builds used the upstream folder name; move that checkout over. Its
-# build/ caches the old absolute path, so it is rebuilt from scratch.
-if [[ ! -d "$FIRMWARE_DIR" && -d "$HOME/esp/xiaozhi-esp32/.git" ]]; then
-  mv "$HOME/esp/xiaozhi-esp32" "$FIRMWARE_DIR"
-  rm -rf "$FIRMWARE_DIR/build"
-fi
 if [[ ! -d "$FIRMWARE_DIR/.git" ]]; then
   git clone "$FIRMWARE_REPO" "$FIRMWARE_DIR"
 fi
@@ -97,7 +98,7 @@ git -C "$FIRMWARE_DIR" fetch --quiet origin
 git -C "$FIRMWARE_DIR" checkout --quiet "$FIRMWARE_REF"
 cd "$FIRMWARE_DIR"
 # Our small upstream patches (firmware/patches/). Reset tracked files first so
-# re-running applies them cleanly; untracked files like sparky.json are kept.
+# re-running applies them cleanly; untracked files like ivee.json are kept.
 git checkout --quiet -- .
 for patch in "$REPO_DIR"/firmware/patches/*.patch; do
   git apply "$patch" || die "Patch $(basename "$patch") no longer applies to $FIRMWARE_REF."
@@ -105,26 +106,44 @@ done
 
 case "${1:-}" in
   "" | -h | --help)
-    sed -n '2,18p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    sed -n '2,23p' "${BASH_SOURCE[0]}"; exit 0 ;;
   --list-wake-words)
     python scripts/build.py --list-wake-words; exit 0 ;;
   --flash)
-    port="${2:-$(ls /dev/cu.usbmodem* 2>/dev/null | head -1)}"
-    [[ -n "$port" ]] || die "No /dev/cu.usbmodem* found. Plug the board in with a data cable."
+    ports=(/dev/cu.usbmodem* /dev/ttyACM*)
+    port="${2:-}"
+    for candidate in "${ports[@]}"; do
+      [[ -z "$port" && -e "$candidate" ]] && port="$candidate"
+    done
+    [[ -n "$port" ]] || die "No USB serial port found. Plug the board in with a data cable."
     # Build first so flash has nothing left to regenerate, then re-pack the faces.
     idf.py build >/dev/null
     pack_faces
     idf.py -p "$port" flash monitor; exit 0 ;;
 esac
 
-wake_word="$1"
-ota_url="${2:-}"
+release_dir=""
+if [[ "$1" == --release ]]; then
+  [[ -n "${2:-}" ]] || die "Usage: ./firmware/build.sh --release <out-dir>"
+  release_dir="$(mkdir -p "$2" && cd "$2" && pwd)"
+  wake_word="${IVEE_WAKE_WORD:-speel}"
+  ota_url="$DEFAULT_OTA_URL"
+else
+  wake_word="$1"
+  ota_url="${2:-}"
+fi
 if [[ -z "$ota_url" ]]; then
-  [[ -f "$REPO_DIR/server/.env" ]] || die "Pass an OTA URL or create server/.env."
-  SERVER_LAN_IP="$(sed -n 's/^SERVER_LAN_IP=//p' "$REPO_DIR/server/.env" | tr -d "\"'")"
-  [[ -n "$SERVER_LAN_IP" ]] || die "SERVER_LAN_IP is empty in server/.env."
-  SERVER_HTTP_PORT="$(sed -n 's/^SERVER_HTTP_PORT=//p' "$REPO_DIR/server/.env" | tr -d "\"'")"
-  ota_url="http://$SERVER_LAN_IP:${SERVER_HTTP_PORT:-8003}/xiaozhi/ota/"
+  env_file="${IVEE_ENV:-}"
+  for candidate in "$HOME/.ivee/config/ivee.env" /opt/ivee/config/ivee.env; do
+    [[ -z "$env_file" && -r "$candidate" ]] && env_file="$candidate"
+  done
+  lan_ip="" http_port=""
+  if [[ -n "$env_file" ]]; then
+    lan_ip="$(sed -n 's/^SERVER_LAN_IP=//p' "$env_file" | tail -1 | tr -d "\"'")"
+    http_port="$(sed -n 's/^SERVER_HTTP_PORT=//p' "$env_file" | tail -1 | tr -d "\"'")"
+  fi
+  ota_url="$DEFAULT_OTA_URL"
+  [[ -n "$lan_ip" ]] && ota_url="http://$lan_ip:${http_port:-8003}/xiaozhi/ota/"
 fi
 [[ "$ota_url" == */xiaozhi/ota/ ]] || die "OTA URL should end in /xiaozhi/ota/ (got $ota_url)."
 
@@ -158,15 +177,46 @@ for build in cfg["builds"]:
     build["sdkconfig_append"] = [
         line for line in build.get("sdkconfig_append", []) if line.split("=", 1)[0] not in keys
     ] + ours
-(board_dir / "sparky.json").write_text(json.dumps(cfg, indent=4) + "\n")
+(board_dir / "ivee.json").write_text(json.dumps(cfg, indent=4) + "\n")
 PY
 
 echo "Building $BOARD ($LANGUAGE, wake word '$wake_word') with OTA URL $ota_url"
-python scripts/build.py "$BOARD" -c sparky.json --language "$LANGUAGE" ${wake_word_args[@]+"${wake_word_args[@]}"}
+python scripts/build.py "$BOARD" -c ivee.json --language "$LANGUAGE" ${wake_word_args[@]+"${wake_word_args[@]}"}
 if [[ -n "$custom_phrase" ]]; then
   grep -q "CONFIG_CUSTOM_WAKE_WORD=\"$custom_phrase\"" sdkconfig || die "sdkconfig doesn't have the custom wake phrase."
 fi
 
 grep -q "CONFIG_OTA_URL=\"$ota_url\"" sdkconfig || die "sdkconfig doesn't have our OTA URL; don't flash this build."
 pack_faces
+if [[ -n "$release_dir" ]]; then
+  idf.py merge-bin >/dev/null  # build/merged-binary.bin, with the re-packed faces
+  python3 - "$release_dir" "${IVEE_VERSION:-$(git -C "$REPO_DIR" describe --tags --always)}" <<'PY'
+import json, shutil, sys
+from pathlib import Path
+out, version = Path(sys.argv[1]), sys.argv[2]
+args = json.loads(Path("build/flasher_args.json").read_text())
+parts = []
+for offset, file in sorted(args["flash_files"].items(), key=lambda item: int(item[0], 16)):
+    name = Path(file).name
+    shutil.copy(Path("build") / file, out / name)
+    parts.append({"path": name, "offset": int(offset, 16)})
+shutil.copy("build/merged-binary.bin", out / "ivee-merged.bin")
+# ESP Web Tools manifest (docs/flash/). Erasing clears an old server URL from the device.
+manifest = {"name": "Ivee", "version": version, "new_install_prompt_erase": True,
+            "builds": [{"chipFamily": "ESP32-S3", "parts": parts}]}
+(out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+# The binary includes upstream's code, ESP-IDF and many components: ship their licenses with it.
+import os, zipfile
+with zipfile.ZipFile(out / "firmware-licenses.zip", "w", zipfile.ZIP_DEFLATED) as z:
+    sources = [("xiaozhi-esp32", Path("."))] + [(d.name, d) for d in sorted(Path("managed_components").iterdir())]
+    sources.append(("esp-idf", Path(os.environ["IDF_PATH"])))
+    for name, folder in sources:
+        for f in sorted(folder.glob("*")):
+            if f.is_file() and f.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE")):
+                z.write(f, f"{name}/{f.name}")
+print(f"Release files in {out}: {', '.join(p['path'] for p in parts)}, ivee-merged.bin, "
+      "manifest.json, firmware-licenses.zip")
+PY
+  exit 0
+fi
 echo "Built. OTA URL confirmed in sdkconfig. Flash with: ./firmware/build.sh --flash"

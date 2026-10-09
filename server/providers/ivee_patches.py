@@ -1,4 +1,4 @@
-"""Runtime fixes to the upstream server (ivee-esp32-server), applied when Sparky's providers load.
+"""Runtime fixes to the upstream server (ivee-esp32-server), applied when Ivee's providers load.
 
 Restore the audio head start after a pause (AudioRateController).
   Upstream sends the first 5 Opus frames (0.3 s) of a reply at once, then paces
@@ -26,12 +26,12 @@ Speel's faces (textUtils.get_emotion, sendAudioHandle.send_tts_message).
   sets "neutral" for idle and listening, so neutral has a single GIF.
   Besides the 21 emotions, three faces of our own:
   - "hi": the reply to the wake word (upstream sends the LLM WAKE_GREETING).
-  - "bye": a reply starting with GOODBYE_EMOJI (sparky_groq's goodbyes), and any
+  - "bye": a reply starting with GOODBYE_EMOJI (ivee_groq's goodbyes), and any
     sentence spoken once the exit tool has run (conn.close_after_chat).
   - "talking": from the 2nd sentence on, once the reply has TALKING_SENTENCES
     sentences (stories, explanations). Short replies keep their emotion face.
 
-The installers copy this into upstream's core/providers/; sparky_groq imports it.
+The installers copy this into upstream's core/providers/; ivee_groq imports it.
 """
 import json
 import random
@@ -50,7 +50,7 @@ HEAD_START_MS = 600
 FRAME_MS = 60
 FACE_VARIANTS = 3
 NO_VARIANTS = {"neutral"}
-GOODBYE_EMOJI = "👋"  # sparky_groq starts its goodbyes with it; TTS drops emoji
+GOODBYE_EMOJI = "👋"  # ivee_groq starts its goodbyes with it; TTS drops emoji
 WAKE_GREETING = "嘿，你好呀"  # core/handle/textHandler/listenMessageHandler.py
 TALKING_SENTENCES = 3
 SENTENCE_END = re.compile(r"[.!?。！？]+(?=\s|$)")
@@ -152,4 +152,4 @@ def apply():
     textUtils.get_emotion = get_emotion
     if not hasattr(sendAudioHandle.send_tts_message, "__wrapped__"):
         sendAudioHandle.send_tts_message = _with_speaking_faces(sendAudioHandle.send_tts_message)
-    logger.bind(tag=TAG).info(f"Sparky patch: audio head start {HEAD_START_MS} ms (reply start and after pauses)")
+    logger.bind(tag=TAG).info(f"Ivee patch: audio head start {HEAD_START_MS} ms (reply start and after pauses)")

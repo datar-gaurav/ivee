@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install Ivee</title>
+  <script type="module" src="https://unpkg.com/esp-web-tools@10.0.1/dist/web/install-button.js?module"></script>
+  <style>
+    :root { --bg: #f6f7f9; --card: #fff; --text: #1c2026; --muted: #5d6673; --line: #d9dde3; --accent: #1f6feb; }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #111418; --card: #1a1e24; --text: #e6e9ed; --muted: #9aa3ad; --line: #2e343c; --accent: #4c8dff; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+    h1 { margin: 0 0 4px; }
+    .lead { color: var(--muted); margin: 0 0 24px; }
+    ol { padding-left: 0; list-style: none; counter-reset: step; }
+    li { counter-increment: step; background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 16px 16px 56px; margin: 12px 0; position: relative; }
+    li::before { content: counter(step); position: absolute; left: 16px; top: 16px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; text-align: center; line-height: 28px; }
+    code { background: var(--line); padding: 2px 6px; border-radius: 4px; word-break: break-all; }
+    esp-web-install-button { display: block; margin-top: 12px; }
+    .note { color: var(--muted); font-size: 0.9rem; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Install Ivee on your device</h1>
+    <p class="lead">For the Waveshare ESP32-S3-Touch-AMOLED-2.16. Set up the <a href="https://github.com/datar-gaurav/ivee#quick-start">Ivee server</a> first: you'll need its address.</p>
+    <ol>
+      <li>
+        Plug the device into this computer with a USB-C <strong>data</strong> cable. Use Chrome or Edge on a desktop computer.
+        <esp-web-install-button manifest="firmware/manifest.json">
+          <span slot="unsupported">This browser can't flash devices. Open this page in Chrome or Edge on a desktop computer.</span>
+          <span slot="not-allowed">Flashing needs a secure page (https).</span>
+        </esp-web-install-button>
+        <p class="note">Choose the device's serial port, then <strong>Install</strong>. Say yes to erasing the device on a first install. It takes about two minutes.</p>
+      </li>
+      <li>
+        The device restarts and opens a Wi-Fi hotspot called <code>Ivee-XXXX</code>. Join it from your phone or computer; the setup page opens (if not, go to <code>http://192.168.4.1</code>).
+      </li>
+      <li>
+        On the <strong>Advanced</strong> tab, set <strong>Custom OTA URL</strong> to the device address shown on your server's config page, and press Save:
+        <p><code>http://&lt;server-ip&gt;:8003/xiaozhi/ota/</code></p>
+        <p class="note">Without it the device looks for <code>ivee.local</code>, which only works if your server's hostname is <code>ivee</code> and your network resolves .local names.</p>
+      </li>
+      <li>
+        Back on the Wi-Fi tab, pick your home Wi-Fi, enter its password and press Connect. The device restarts, joins your Wi-Fi and connects to your server. Say <strong>"Speel"</strong> to start talking.
+      </li>
+    </ol>
+    <p class="note">Prefer the command line? Download <code>ivee-merged.bin</code> from the <a href="https://github.com/datar-gaurav/ivee/releases/latest">latest release</a> and run <code>esptool.py --chip esp32s3 write_flash 0x0 ivee-merged.bin</code>.</p>
+  </main>
+</body>
+</html>

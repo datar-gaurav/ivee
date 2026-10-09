@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ivee settings</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>Ivee settings</h1>
+    <button id="logout" class="link" hidden>Sign out</button>
+  </header>
+
+  <main>
+    <section id="login" class="card" hidden>
+      <h2>Sign in</h2>
+      <p class="hint">Use the password the installer printed.</p>
+      <form id="login-form">
+        <label>Password <input type="password" id="password" autocomplete="current-password" required></label>
+        <button type="submit">Sign in</button>
+        <p id="login-message" class="message" role="alert"></p>
+      </form>
+    </section>
+
+    <form id="settings" hidden>
+      <div id="problems" class="banner warn" role="alert" hidden></div>
+      <div id="status" class="banner" role="status" hidden></div>
+
+      <section class="card">
+        <h2>Getting started</h2>
+        <label>Groq API key
+          <input type="password" name="GROQ_API_KEY" autocomplete="off" spellcheck="false">
+        </label>
+        <p class="hint">Free at <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>. <span data-key-state="GROQ_API_KEY"></span></p>
+        <div class="row">
+          <button type="button" id="test-groq" class="secondary">Test key</button>
+          <span id="groq-message" class="message"></span>
+        </div>
+        <label>This server's address on your network
+          <input name="SERVER_LAN_IP" required spellcheck="false">
+        </label>
+        <p class="hint">Detected: <button type="button" id="use-ip" class="link"></button>. Reserve it on your router so it doesn't change.</p>
+        <label>Time zone (hours from UTC)
+          <input name="TIMEZONE_OFFSET" inputmode="decimal">
+        </label>
+        <div class="device">
+          <strong>Device setup.</strong> Join the device's <code>Ivee-XXXX</code> Wi-Fi hotspot; on its setup page's <em>Advanced</em> tab, set <em>Custom OTA URL</em> to:
+          <code id="ota-url"></code>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Character</h2>
+        <p class="hint">Who the character is and how it talks. The safety rules are separate and always apply.</p>
+        <textarea id="identity" rows="14" spellcheck="true"></textarea>
+        <button type="button" id="reset-identity" class="link">Reset to the default character</button>
+      </section>
+
+      <section class="card">
+        <h2>Voice</h2>
+        <div class="grid">
+          <label>Voice <input name="TTS_VOICE" list="voices" spellcheck="false"></label>
+          <label>Speed <input name="TTS_SPEED" type="number" min="0.5" max="1.5" step="0.05"></label>
+          <label>Pitch <input name="TTS_PITCH" type="number" min="0.8" max="1.5" step="0.01"></label>
+          <label>Loudness boost <input name="TTS_BOOST" type="number" min="1" max="5" step="0.1"></label>
+          <label>Bass cut (Hz) <input name="TTS_HIGHPASS" type="number" min="0" max="1000" step="10"></label>
+          <label>Clarity lift (dB) <input name="TTS_PRESENCE" type="number" min="0" max="12" step="0.5"></label>
+        </div>
+        <datalist id="voices">
+          <option value="af_heart"><option value="af_bella"><option value="af_sky"><option value="af_nicole">
+          <option value="af_sarah"><option value="am_puck"><option value="am_adam"><option value="am_michael">
+          <option value="bf_emma"><option value="bm_george">
+        </datalist>
+        <label>Try a sentence <input id="preview-text" value="Hi! I'm so happy to talk with you."></label>
+        <div class="row">
+          <button type="button" id="preview" class="secondary">Play</button>
+          <span id="preview-message" class="message"></span>
+        </div>
+        <audio id="player" controls hidden></audio>
+      </section>
+
+      <section class="card">
+        <h2>Brain</h2>
+        <div class="grid">
+          <label>Main model <input name="GROQ_LLM_MODEL" spellcheck="false"></label>
+          <label>Fallback model <input name="GROQ_FALLBACK_MODEL" spellcheck="false"></label>
+        </div>
+        <p class="hint">Groq models with tool calling. Each has its own free daily quota; the fallback answers when the main one runs out.</p>
+        <details id="extra">
+          <summary>Extra provider (tried before Groq)</summary>
+          <p class="hint">Any OpenAI-compatible API, such as NVIDIA NIM or OpenRouter. Use a model with tool calling. Some free tiers are for testing only, so check the provider's terms; the conversation text goes to them too.</p>
+          <label>Base URL <input name="EXTRA_LLM_BASE_URL" placeholder="https://integrate.api.nvidia.com/v1" spellcheck="false"></label>
+          <label>Model <input name="EXTRA_LLM_MODEL" spellcheck="false"></label>
+          <label>API key <input type="password" name="EXTRA_LLM_API_KEY" autocomplete="off" spellcheck="false"></label>
+          <p class="hint"><span data-key-state="EXTRA_LLM_API_KEY"></span></p>
+          <div class="row">
+            <button type="button" id="test-extra" class="secondary">Test</button>
+            <button type="button" id="remove-extra" class="link" hidden>Remove extra provider</button>
+            <span id="extra-message" class="message"></span>
+          </div>
+        </details>
+        <details>
+          <summary>Local model (Ollama)</summary>
+          <div class="grid">
+            <label>Ollama address <input name="OLLAMA_BASE_URL" spellcheck="false"></label>
+            <label>Ollama model <input name="OLLAMA_MODEL" spellcheck="false"></label>
+          </div>
+          <label>Replies come from
+            <select name="LLM_MODULE">
+              <option value="GroqLLM">Ollama while it's reachable, else the cloud providers</option>
+              <option value="OllamaLLM">Ollama only</option>
+            </select>
+          </label>
+          <p class="hint">Model <code>none</code> turns Ollama off. Speech-to-text always uses Groq.</p>
+        </details>
+      </section>
+
+      <section class="card">
+        <details>
+          <summary>Advanced</summary>
+          <div class="grid">
+            <label>WebSocket port <input name="SERVER_WS_PORT" inputmode="numeric"></label>
+            <label>Device setup port <input name="SERVER_HTTP_PORT" inputmode="numeric"></label>
+            <label>Voice service port <input name="TTS_PORT" inputmode="numeric"></label>
+          </div>
+          <p class="hint">Changing the device setup port means entering the new Custom OTA URL on the device.</p>
+          <label>Nightly backup to <input name="BACKUP_TARGET" placeholder="/mnt/nas/ivee-backups" spellcheck="false"></label>
+          <p class="hint">Upstream server version: <code id="server-ref"></code></p>
+        </details>
+      </section>
+
+      <div class="actions">
+        <span id="health"></span>
+        <button type="submit" id="save">Save and apply</button>
+      </div>
+    </form>
+  </main>
+</body>
+</html>

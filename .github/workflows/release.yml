@@ -1,0 +1,67 @@
+name: Release
+
+# Push a tag like v1.0.0 to build the firmware, attach it to a GitHub release and
+# publish the browser flasher (docs/flash/) on GitHub Pages.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  firmware:
+    runs-on: ubuntu-24.04
+    container: espressif/idf:v6.1
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        shell: bash
+        env:
+          IVEE_VERSION: ${{ github.ref_name }}
+          FIRMWARE_DIR: ${{ runner.temp }}/ivee-esp32
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          ./firmware/build.sh --release "$RUNNER_TEMP/release"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: ${{ runner.temp }}/release
+          if-no-files-found: error
+
+  publish:
+    needs: firmware
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware
+          path: release
+      - name: GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --generate-notes --verify-tag
+      - name: Flasher site
+        run: |
+          mkdir -p site/firmware
+          cp docs/flash/index.html site/
+          cp release/* site/firmware/
+          rm site/firmware/ivee-merged.bin  # the flasher uses the parts
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: pages
+        uses: actions/deploy-pages@v4

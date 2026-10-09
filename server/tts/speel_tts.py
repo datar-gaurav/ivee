@@ -1,7 +1,8 @@
 """Speel's voice: Kokoro TTS over a tiny local HTTP API.
 
 POST /synthesize {"text": "..."} -> audio/wav. Same interface the server's
-`custom` TTS used with Piper, so only the URL's service changed.
+`custom` TTS used with Piper, so only the URL's service changed. The config page
+previews other settings by adding any of OVERRIDES to the body.
 
 - Voice: Kokoro (kokoro-onnx), e.g. af_heart.
 - Phonemes come from Piper's bundled espeak-ng (piper.phonemize_espeak):
@@ -22,6 +23,7 @@ import json
 import logging
 import threading
 import wave
+from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import numpy as np
@@ -29,6 +31,9 @@ from kokoro_onnx import Kokoro
 from piper.phonemize_espeak import EspeakPhonemizer
 
 MAX_PHONEMES = 500  # Kokoro's limit is 510 per call
+# Settings a request may override (for the config page's voice preview), with limits.
+OVERRIDES = {"speed": (0.5, 1.5), "pitch": (0.8, 1.5), "boost": (1.0, 5.0),
+             "highpass": (0.0, 1000.0), "presence": (0.0, 12.0)}
 log = logging.getLogger("speel_tts")
 
 
@@ -66,31 +71,64 @@ class SpeelVoice:
         if chunk:
             yield chunk
 
-    def wav(self, text):
+    def settings(self, overrides):
+        """This voice's settings with `overrides` (from a request) applied and checked."""
+        s = {"voice": self.voice, "speed": self.speed, "pitch": self.pitch, "boost": self.boost,
+             "highpass": self.highpass, "presence": self.presence}
+        if "voice" in overrides:
+            if overrides["voice"] not in self.kokoro.get_voices():
+                raise ValueError(f"unknown voice {overrides['voice']!r}")
+            s["voice"] = overrides["voice"]
+        for key, (low, high) in OVERRIDES.items():
+            if key in overrides:
+                value = float(overrides[key])
+                if not low <= value <= high:
+                    raise ValueError(f"{key} must be between {low:g} and {high:g}")
+                s[key] = value
+        return s
+
+    def wav(self, text, overrides=None):
+        s = self.settings(overrides or {})
         with self.lock:
             parts, sr = [], 24000
             for phonemes in self._chunks(text):
                 samples, sr = self.kokoro.create(
-                    phonemes, voice=self.voice, speed=self.speed / self.pitch, is_phonemes=True)
+                    phonemes, voice=s["voice"], speed=s["speed"] / s["pitch"], is_phonemes=True)
                 parts.append(samples)
         audio = np.concatenate(parts) if parts else np.zeros(1, dtype=np.float32)
         # EQ in playback frequencies: the pitch trick plays everything pitch x higher.
-        audio = small_speaker_eq(audio, sr * self.pitch, self.highpass, self.presence)
+        audio = small_speaker_eq(audio, sr * s["pitch"], s["highpass"], s["presence"])
         audio = audio / (float(np.max(np.abs(audio))) or 1.0)
-        if self.boost > 1:
-            audio = np.tanh(self.boost * audio) / np.tanh(self.boost)
+        if s["boost"] > 1:
+            audio = np.tanh(s["boost"] * audio) / np.tanh(s["boost"])
         pcm = np.clip(audio * self.peak, -1, 1)
         buf = io.BytesIO()
         with wave.open(buf, "wb") as w:
             w.setnchannels(1)
             w.setsampwidth(2)
-            w.setframerate(round(sr * self.pitch))
+            w.setframerate(round(sr * s["pitch"]))
             w.writeframes((pcm * 32767).astype("<i2").tobytes())
         return buf.getvalue()
 
 
+def env_settings(path):
+    """TTS_* values from ivee.env, as argparse defaults (empty values are skipped)."""
+    names = {"TTS_PORT": "port", "TTS_VOICE": "voice", "TTS_SPEED": "speed", "TTS_PITCH": "pitch",
+             "TTS_BOOST": "boost", "TTS_HIGHPASS": "highpass", "TTS_PRESENCE": "presence"}
+    found = {}
+    for line in path.read_text().splitlines():
+        key, _, value = line.strip().partition("=")
+        value = value.strip().strip('"').strip("'")
+        if key in names and value:
+            found[names[key]] = value if key == "TTS_VOICE" else float(value)
+    if "port" in found:
+        found["port"] = int(found["port"])
+    return found
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--env", type=Path, help="ivee.env; its TTS_* values override the defaults below")
     p.add_argument("--host", default="127.0.0.1")
     p.add_argument("--port", type=int, default=5000)
     p.add_argument("--model", required=True, help="kokoro-v1.0.onnx")
@@ -103,6 +141,9 @@ def main():
     p.add_argument("--highpass", type=float, default=300, help="cut below this many Hz; 0 = off")
     p.add_argument("--presence", type=float, default=5, help="dB lift around 3 kHz; 0 = off")
     args = p.parse_args()
+    if args.env:
+        p.set_defaults(**env_settings(args.env))
+        args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     voice = SpeelVoice(args.model, args.voices, args.voice, args.speed, args.pitch, args.peak,
                        args.boost, args.highpass, args.presence)
@@ -118,7 +159,11 @@ def main():
                 if not text:
                     self.send_error(400, "text is required")
                     return
-                data = voice.wav(text)
+                overrides = {k: body[k] for k in ("voice", *OVERRIDES) if k in body}
+                data = voice.wav(text, overrides)
+            except ValueError as e:
+                self.send_error(400, str(e))
+                return
             except Exception as e:  # keep serving; the server retries
                 log.exception("synthesis failed")
                 self.send_error(500, str(e))
@@ -132,6 +177,8 @@ def main():
         def log_message(self, fmt, *a):
             log.info("%s %s", self.address_string(), fmt % a)
 
+    if args.host not in ("127.0.0.1", "localhost", "::1"):
+        log.warning("Listening on %s: anyone on the network can use this voice", args.host)
     log.info("Speel TTS on %s:%d (voice %s, speed %.2f, pitch %.2f, boost %.1f, highpass %g Hz, presence %g dB)",
              args.host, args.port, args.voice, args.speed, args.pitch, args.boost, args.highpass, args.presence)
     ThreadingHTTPServer((args.host, args.port), Handler).serve_forever()

@@ -6,7 +6,7 @@ upstream's emoji.
 
 Three variants per emotion (`happy_01.gif`, `happy_02.gif`, `happy_03.gif`); the
 server picks one at random for each reply (`get_emotion` in
-`server/providers/sparky_patches.py`, `FACE_VARIANTS`). `neutral.gif` is the only
+`server/providers/ivee_patches.py`, `FACE_VARIANTS`). `neutral.gif` is the only
 single face: the firmware itself sets "neutral" for idle and listening, so the
 server can't pick a variant there.
 

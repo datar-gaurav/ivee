@@ -1,0 +1,7 @@
+[Unit]
+Description=Apply Ivee's settings: re-render the server config and restart (server/scripts/apply.sh)
+
+[Service]
+Type=oneshot
+ExecStart=@REPO_DIR@/server/scripts/apply.sh
+Environment=IVEE_PREFIX=@PREFIX@ IVEE_USER=@USER@
