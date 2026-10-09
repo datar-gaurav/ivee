@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Render Sparky's xiaozhi-server overlay config from template + .env + persona.
+"""Render Sparky's overlay config for the upstream server from template + .env + persona.
 
 Usage:
-    render_config.py --env server/.env --out /opt/sparky/xiaozhi-server/data
+    render_config.py --env server/.env --out /opt/sparky/ivee-esp32-server/main/xiaozhi-server/data
 
 Writes:
     <out>/.config.yaml              (merged over upstream config.yaml by the server)
@@ -91,7 +91,7 @@ def render(env: dict[str, str]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env", type=Path, default=REPO / "server" / ".env")
-    parser.add_argument("--out", type=Path, required=True, help="xiaozhi-server data/ directory")
+    parser.add_argument("--out", type=Path, required=True, help="the upstream server's data/ directory")
     args = parser.parse_args()
 
     if not args.env.exists():

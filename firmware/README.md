@@ -18,7 +18,7 @@ Known upstream quirk: the board's `config.json` sets `CONFIG_USE_DEVICE_AEC=y`, 
 
 ## Manual build
 ```bash
-git clone https://github.com/78/xiaozhi-esp32.git && cd xiaozhi-esp32
+git clone https://github.com/78/xiaozhi-esp32.git ivee-esp32 && cd ivee-esp32
 . $IDF_PATH/export.sh
 
 python scripts/build.py --list-boards | grep amoled-2.16     # confirm the board id
@@ -43,5 +43,5 @@ On first boot the device opens a Wi-Fi setup hotspot. Join it from a phone and e
 
 ## Notes
 - The OTA URL can also be stored on the device (NVS key `ota_url` in the `wifi` namespace), which overrides the compiled default.
-- The face shows the emoji that the LLM puts at the start of each reply (see `persona/base-prompt-template.txt`).
-- To check that it hit your server and not the cloud, watch `journalctl -u sparky-server -f` while the device boots.
+- The face shows the emoji that the LLM puts at the start of each reply (see `persona/base-prompt-template.txt`), in one of 3 variants the server picks at random (see `faces/README.md`).
+- To check that it hit your server and not the cloud, watch `journalctl -u ivee-server -f` while the device boots.

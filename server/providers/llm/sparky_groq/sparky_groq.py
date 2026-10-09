@@ -48,7 +48,7 @@ TAG = __name__
 logger = setup_logging()
 sparky_patches.apply()  # runtime fixes to upstream; see core/providers/sparky_patches.py
 
-# Upstream's hardcoded Chinese strings (pinned XIAOZHI_SERVER_REF) -> English.
+# Upstream's hardcoded Chinese strings (pinned IVEE_SERVER_REF) -> English.
 FEW_SHOT_ENGLISH = {
     "给我讲个故事吧": "Tell me a story!",
     "好呀，你想听什么类型的呀？童话、冒险还是搞笑的？选一个我给你开讲~":
@@ -231,7 +231,7 @@ class LLMProvider(OpenAILLMProvider):
 
     def response(self, session_id, dialogue, **kwargs):
         if _wants_goodbye(dialogue):
-            yield f"😍 {random.choice(GOODBYES)}"
+            yield f"{sparky_patches.GOODBYE_EMOJI} {random.choice(GOODBYES)}"
             return
         if not (yield from self._stream(OpenAILLMProvider.response, session_id, self._prepare(dialogue), **kwargs)):
             yield f"😴 {SLEEPY_LINE}"
@@ -239,7 +239,7 @@ class LLMProvider(OpenAILLMProvider):
     def response_with_functions(self, session_id, dialogue, functions=None, **kwargs):
         tools = _speel_tools(functions)
         if _wants_goodbye(dialogue):
-            yield from _say_and_exit("😍", random.choice(GOODBYES), tools)
+            yield from _say_and_exit(sparky_patches.GOODBYE_EMOJI, random.choice(GOODBYES), tools)
             return
         stream = self._stream(OpenAILLMProvider.response_with_functions, session_id,
                               self._prepare(dialogue), tools, **kwargs)

@@ -2,7 +2,7 @@
 # Sparky server installer for a small always-on Debian box (HP Stream Mini 200-010).
 #
 # Lean by design: no Docker, no web console, no database. Runs:
-#   - sparky-server.service : xiaozhi-esp32-server core (WebSocket :8000, OTA :8003)
+#   - ivee-server.service   : ivee-esp32-server core (upstream server checkout) (WebSocket :8000, OTA :8003)
 #   - sparky-tts.service    : Speel's voice, Kokoro TTS on 127.0.0.1:$TTS_PORT (server/tts/speel_tts.py)
 #
 # Prereqs: Debian 12/13 (no desktop), this repo cloned to /opt/sparky/repo,
@@ -14,7 +14,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_DIR/server/.env"
 PREFIX=/opt/sparky
-SERVER_DIR="$PREFIX/xiaozhi-esp32-server"
+SERVER_DIR="$PREFIX/ivee-esp32-server"
 APP_DIR="$SERVER_DIR/main/xiaozhi-server"
 SERVICE_USER=sparky
 
@@ -27,7 +27,7 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-: "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}"
+: "${IVEE_SERVER_REPO:?}" "${IVEE_SERVER_REF:?}"
 
 log "Checking hardware"
 mem_mb=$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo)
@@ -59,12 +59,16 @@ if ! command -v uv >/dev/null; then
 fi
 export UV_PYTHON_INSTALL_DIR="$PREFIX/python"
 
-log "Fetching xiaozhi-esp32-server @ ${XIAOZHI_SERVER_REF:0:12}"
+log "Fetching ivee-esp32-server @ ${IVEE_SERVER_REF:0:12}"
+# Earlier installs used the upstream folder name; move that checkout over.
+if [[ ! -d "$SERVER_DIR" && -d "$PREFIX/xiaozhi-esp32-server/.git" ]]; then
+  mv "$PREFIX/xiaozhi-esp32-server" "$SERVER_DIR"
+fi
 if [[ ! -d "$SERVER_DIR/.git" ]]; then
-  git clone --filter=blob:none "$XIAOZHI_SERVER_REPO" "$SERVER_DIR"
+  git clone --filter=blob:none "$IVEE_SERVER_REPO" "$SERVER_DIR"
 fi
 git -C "$SERVER_DIR" fetch --quiet origin
-git -C "$SERVER_DIR" checkout --quiet "$XIAOZHI_SERVER_REF"
+git -C "$SERVER_DIR" checkout --quiet "$IVEE_SERVER_REF"
 
 log "Creating server venv (Python 3.10, as upstream recommends)"
 uv python install 3.10
@@ -93,7 +97,12 @@ cp -R "$REPO_DIR/server/providers/." "$APP_DIR/core/providers/"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$PREFIX"
 
 log "Installing systemd units"
-for unit in sparky-tts.service sparky-server.service; do
+# The server unit used to be sparky-server.service.
+if [[ -f /etc/systemd/system/sparky-server.service ]]; then
+  systemctl disable --now sparky-server.service || true
+  rm -f /etc/systemd/system/sparky-server.service
+fi
+for unit in sparky-tts.service ivee-server.service; do
   sed -e "s|@PREFIX@|$PREFIX|g" -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@USER@|$SERVICE_USER|g" \
       -e "s|@REPO_DIR@|$REPO_DIR|g" -e "s|@TTS_PORT@|${TTS_PORT:-5000}|g" \
       -e "s|@TTS_VOICE@|${TTS_VOICE:-af_heart}|g" -e "s|@TTS_SPEED@|${TTS_SPEED:-0.9}|g" \
@@ -103,8 +112,8 @@ for unit in sparky-tts.service sparky-server.service; do
 done
 systemctl daemon-reload
 systemctl enable --now sparky-tts.service
-systemctl restart sparky-server.service || true
-systemctl enable sparky-server.service
+systemctl restart ivee-server.service || true
+systemctl enable ivee-server.service
 
 log "Waiting for services"
 for _ in $(seq 1 60); do
@@ -125,9 +134,9 @@ if curl -fsS -o /dev/null "http://127.0.0.1:8003/xiaozhi/ota/"; then
 Sparky server is up.
   OTA URL for the device : http://${SERVER_LAN_IP}:8003/xiaozhi/ota/
   WebSocket              : ws://${SERVER_LAN_IP}:8000/xiaozhi/v1/
-  Logs                   : journalctl -u sparky-server -f
+  Logs                   : journalctl -u ivee-server -f
 EOF
 else
-  echo "Server not answering yet. Check: journalctl -u sparky-server -n 100"
+  echo "Server not answering yet. Check: journalctl -u ivee-server -n 100"
   exit 1
 fi

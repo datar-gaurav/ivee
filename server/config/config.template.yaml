@@ -1,9 +1,9 @@
-# Sparky overlay for xiaozhi-esp32-server.
+# Sparky overlay for the upstream server (ivee-esp32-server).
 #
 # This file is a TEMPLATE. Do not put secrets here.
 # `server/scripts/render_config.py` fills in the double-brace placeholders from server/.env
 # and the persona files, and writes the result to
-# <xiaozhi-server>/data/.config.yaml, which the server merges over its
+# <ivee-esp32-server>/main/xiaozhi-server/data/.config.yaml, which the server merges over its
 # upstream config.yaml (keys here win; anything not listed keeps upstream defaults).
 
 server:

@@ -1,12 +1,26 @@
 # <emotion the server sends> <face GIF to show>
-funny       laughing
-crying      sad
-angry       confused
-shocked     surprised
-relaxed     happy
-cool        happy
-confident   happy
-delicious   happy
-winking     silly
-embarrassed silly
-kissy       loving
+# The server normally sends <emotion>_01/_02/_03 (sparky_patches.py picks one at random).
+# These plain names are the fallback if it sends just <emotion>.
+angry       angry_01
+confident   confident_01
+confused    confused_01
+cool        cool_01
+crying      crying_01
+delicious   delicious_01
+embarrassed embarrassed_01
+funny       funny_01
+happy       happy_01
+kissy       kissy_01
+laughing    laughing_01
+loving      loving_01
+relaxed     relaxed_01
+sad         sad_01
+shocked     shocked_01
+silly       silly_01
+sleepy      sleepy_01
+surprised   surprised_01
+thinking    thinking_01
+winking     winking_01
+bye         bye_01
+hi          hi_01
+talking     talking_01

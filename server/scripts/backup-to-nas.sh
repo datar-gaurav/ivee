@@ -10,7 +10,7 @@ source "$REPO_DIR/server/.env"
 set +a
 : "${NAS_BACKUP_TARGET:?Set NAS_BACKUP_TARGET in server/.env}"
 
-APP_DIR=/opt/sparky/xiaozhi-esp32-server/main/xiaozhi-server
+APP_DIR=/opt/sparky/ivee-esp32-server/main/xiaozhi-server
 DEST="$NAS_BACKUP_TARGET/$(hostname)/$(date +%F)"
 
 mkdir -p "$DEST"

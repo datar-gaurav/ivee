@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build xiaozhi-esp32 firmware for Sparky's board, pointed at Sparky's OTA URL.
+# Build the upstream ESP32 firmware (checked out as ivee-esp32) for Sparky's board, pointed at Sparky's OTA URL.
 #
 # Checks out upstream firmware at FIRMWARE_REF, writes a `sparky.json` board
 # config (upstream config.json + our OTA URL) next to upstream's, and builds
@@ -20,7 +20,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FIRMWARE_REPO="${FIRMWARE_REPO:-https://github.com/78/xiaozhi-esp32.git}"
 FIRMWARE_REF="${FIRMWARE_REF:-4f7c00fb8432e92b08732f5a3cd6c58f9f7ca0cd}"  # main, v2.5.1
-FIRMWARE_DIR="${FIRMWARE_DIR:-$HOME/esp/xiaozhi-esp32}"
+FIRMWARE_DIR="${FIRMWARE_DIR:-$HOME/esp/ivee-esp32}"
 IDF_PATH="${IDF_PATH:-$HOME/esp/esp-idf}"
 BOARD=waveshare/esp32-s3-touch-amoled-2.16
 LANGUAGE=en-US
@@ -84,6 +84,12 @@ PY
 # shellcheck disable=SC1091
 . "$IDF_PATH/export.sh" >/dev/null
 
+# Earlier builds used the upstream folder name; move that checkout over. Its
+# build/ caches the old absolute path, so it is rebuilt from scratch.
+if [[ ! -d "$FIRMWARE_DIR" && -d "$HOME/esp/xiaozhi-esp32/.git" ]]; then
+  mv "$HOME/esp/xiaozhi-esp32" "$FIRMWARE_DIR"
+  rm -rf "$FIRMWARE_DIR/build"
+fi
 if [[ ! -d "$FIRMWARE_DIR/.git" ]]; then
   git clone "$FIRMWARE_REPO" "$FIRMWARE_DIR"
 fi

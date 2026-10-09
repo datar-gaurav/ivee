@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run Sparky's server on a MacBook (Apple Silicon) in the foreground, for testing.
 #
-# Same stack as the HP install: upstream xiaozhi-esp32-server at the pinned ref
+# Same stack as the HP install: the upstream server (ivee-esp32-server) at the pinned ref
 # + local Kokoro TTS (server/tts/speel_tts.py), configured by our overlay. No sudo, no launchd; Ctrl-C stops
 # everything. Everything lives under ~/.sparky (delete it to start over).
 #
@@ -12,7 +12,7 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$REPO_DIR/server/.env"
 PREFIX="${SPARKY_PREFIX:-$HOME/.sparky}"
-SERVER_DIR="$PREFIX/xiaozhi-esp32-server"
+SERVER_DIR="$PREFIX/ivee-esp32-server"
 APP_DIR="$SERVER_DIR/main/xiaozhi-server"
 
 log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
@@ -24,7 +24,7 @@ set -a
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 set +a
-: "${XIAOZHI_SERVER_REPO:?}" "${XIAOZHI_SERVER_REF:?}" "${SERVER_LAN_IP:?}"
+: "${IVEE_SERVER_REPO:?}" "${IVEE_SERVER_REF:?}" "${SERVER_LAN_IP:?}"
 
 SERVER_WS_PORT="${SERVER_WS_PORT:-8000}"
 SERVER_HTTP_PORT="${SERVER_HTTP_PORT:-8003}"
@@ -51,12 +51,16 @@ export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix)/lib${DYLD_FALLBACK_LIBRARY_P
 
 mkdir -p "$PREFIX/voices"
 
-log "Fetching xiaozhi-esp32-server @ ${XIAOZHI_SERVER_REF:0:12}"
+log "Fetching ivee-esp32-server @ ${IVEE_SERVER_REF:0:12}"
+# Earlier runs used the upstream folder name; move that checkout over.
+if [[ ! -d "$SERVER_DIR" && -d "$PREFIX/xiaozhi-esp32-server/.git" ]]; then
+  mv "$PREFIX/xiaozhi-esp32-server" "$SERVER_DIR"
+fi
 if [[ ! -d "$SERVER_DIR/.git" ]]; then
-  git clone --filter=blob:none "$XIAOZHI_SERVER_REPO" "$SERVER_DIR"
+  git clone --filter=blob:none "$IVEE_SERVER_REPO" "$SERVER_DIR"
 fi
 git -C "$SERVER_DIR" fetch --quiet origin
-git -C "$SERVER_DIR" checkout --quiet "$XIAOZHI_SERVER_REF"
+git -C "$SERVER_DIR" checkout --quiet "$IVEE_SERVER_REF"
 
 log "Creating server venv (Python 3.10, as upstream recommends)"
 [[ -d "$PREFIX/venv-server" ]] || uv venv --python 3.10 "$PREFIX/venv-server"

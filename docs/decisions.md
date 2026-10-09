@@ -1,6 +1,6 @@
 # Decisions
 
-## D1: Self-host the xiaozhi server; never use the default xiaozhi.me cloud
+## D1: Self-host the server; never use the default xiaozhi.me cloud
 The firmware's default OTA endpoint is a third-party cloud hosted in China. A child's voice shouldn't go there. We point the firmware at our own server.
 
 ## D2: Phase 1 runs on the HP Stream Mini (free), not new hardware
@@ -25,7 +25,7 @@ We don't store a profile of the child by default. Revisit only deliberately, and
 No web search, news, or role switching. Only exit and local music are enabled. Fewer tools means fewer surprises and smaller prompts (the Groq 8K TPM limit).
 
 ## D6: Upstream not vendored; pinned by commit
-We only own an overlay config and the prompt files. Bumping `XIAOZHI_SERVER_REF` is a deliberate act.
+We only own an overlay config and the prompt files. Bumping `IVEE_SERVER_REF` is a deliberate act.
 Exception: extra providers in `server/providers/`, which the installers copy into upstream's tree as new files. Upstream loads a provider by its `type:` name, so this needs no edits to upstream code. `sparky_groq` exists because upstream's `openai` ASR sends no `language` and Whisper heard the child as Japanese. Check it still matches upstream's ASR interface after bumping the ref.
 
 ## D7: Phase 2 target is Cloudflare

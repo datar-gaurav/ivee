@@ -5,7 +5,7 @@ A small, kid-safe voice companion with an animated face, built to run for about 
 ```
 ┌──────────────────────┐   WebSocket + Opus   ┌────────────────────────────────┐
 │ ESP32-S3 AMOLED 2.16 │ ───────────────────▶ │ HP Stream Mini (Debian)        │
-│ wake word, mic/AEC,  │ ◀─────────────────── │ xiaozhi-esp32-server (lean)    │
+│ wake word, mic/AEC,  │ ◀─────────────────── │ ivee-esp32-server (lean)       │
 │ speaker, emoji face  │                      │  ├─ STT  → Groq Whisper (free) │
 └──────────────────────┘                      │  ├─ LLM  → Groq (free) / Ollama│
                                               │  └─ TTS  → Piper (local)       │
@@ -29,7 +29,7 @@ A small, kid-safe voice companion with an animated face, built to run for about 
 **2. Device**
 Follow [firmware/README.md](firmware/README.md) to build the firmware with that OTA URL and flash it.
 
-**3. Talk to it.** Logs: `journalctl -u sparky-server -f`
+**3. Talk to it.** Logs: `journalctl -u ivee-server -f`
 
 ## Changing Sparky
 - Personality → `persona/identity.md`

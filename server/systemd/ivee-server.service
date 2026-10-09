@@ -1,5 +1,5 @@
 [Unit]
-Description=Sparky voice server (xiaozhi-esp32-server core)
+Description=Ivee voice server (ivee-esp32-server core)
 After=network-online.target sparky-tts.service
 Wants=network-online.target sparky-tts.service
 
