@@ -9,7 +9,7 @@
 #   ./firmware/build.sh --list-wake-words
 #   ./firmware/build.sh <wake-word> [ota-url]
 # <wake-word> is either a pre-trained WakeNet model from the list (e.g.
-# wn9_hijolly_tts2) or any English phrase (e.g. "hi speel"). A phrase uses
+# wn9_hijolly_tts2) or any English phrase (e.g. "speel"). A phrase uses
 # ESP-SR's MultiNet7 English command recognizer, which converts the text to
 # phonemes on the device, so it needs no training but is less accurate.
 # The OTA URL defaults to http://$SERVER_LAN_IP:$SERVER_HTTP_PORT/xiaozhi/ota/ from server/.env.
