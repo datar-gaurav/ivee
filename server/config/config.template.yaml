@@ -32,20 +32,9 @@ tts_timeout: 15
 enable_greeting: true
 enable_wakeup_words_response_cache: false
 
-# Upstream strips punctuation and spaces from the transcript, then compares it
-# case-sensitively, so list each word with no spaces in both cases ("Good night." -> "Goodnight").
-# Anything longer ("bye Speel") is left to the LLM's exit tool.
-exit_commands:
-  - "bye"
-  - "Bye"
-  - "byebye"
-  - "Byebye"
-  - "goodbye"
-  - "Goodbye"
-  - "goodnight"
-  - "Goodnight"
-  - "stop"
-  - "Stop"
+# Empty on purpose: upstream would hang up silently on these. Bye phrases go to
+# the LLM provider (sparky_groq), which says one of Speel's goodbyes, no Groq call.
+exit_commands: []
 
 wakeup_words:
   - "hi speel"
@@ -68,12 +57,19 @@ system_error_response: "Oops, Speel's brain is taking a little nap. Let's try ag
 
 end_prompt:
   enable: true
-  prompt: |
-    Say a short, warm goodbye to the child in one sentence, like a friend who will see him again soon.
+  # After the silence timeout. sparky_groq answers this marker with one of
+  # Speel's goodbyes instead of asking Groq.
+  prompt: "[[speel:goodbye]]"
 
 # --------------------------------------------------------------------------
 # Pipeline
 # --------------------------------------------------------------------------
+VAD:
+  SileroVAD:
+    # Upstream ends a turn after a 200 ms pause, which cut the child's sentences
+    # into fragments (young children pause mid-sentence). Replies start ~0.8 s later.
+    min_silence_duration_ms: 1000
+
 selected_module:
   VAD: SileroVAD
   ASR: GroqASR
@@ -95,9 +91,12 @@ ASR:
     # so Whisper doesn't guess (it once heard the child as Japanese).
     type: sparky_groq
     language: en
+    # Context hint for Whisper: helps with a young child's speech and the name.
+    prompt: "A young child talking to Speel, a friendly robot."
     api_key: {{GROQ_API_KEY}}
     base_url: https://api.groq.com/openai/v1/audio/transcriptions
-    model_name: whisper-large-v3-turbo
+    # Full large-v3, not turbo: more accurate on hard audio like a child's voice.
+    model_name: whisper-large-v3
     output_dir: tmp/
 
 LLM:
@@ -106,6 +105,13 @@ LLM:
     # Also translates upstream's Chinese few-shot examples, which made replies Chinese.
     type: sparky_groq
     reasoning_effort: low
+    # Groq limits each model separately: on a 429, answer with this model instead.
+    fallback_model: {{GROQ_FALLBACK_MODEL}}
+    # Send only the last N exchanges (upstream sends the whole session).
+    max_history_turns: 6
+    # Tried first while reachable: Ollama on the MacBook (OLLAMA_MODEL=none to skip).
+    local_model: {{OLLAMA_MODEL}}
+    local_base_url: {{OLLAMA_BASE_URL}}/v1
     base_url: https://api.groq.com/openai/v1
     model_name: {{GROQ_LLM_MODEL}}
     api_key: {{GROQ_API_KEY}}

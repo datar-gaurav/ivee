@@ -1,6 +1,6 @@
 # Sparky — context for Claude Code
 
-Sparky is a voice AI companion for a 4-year-old. The project is "Sparky"; the character the child talks to is **Speel** (wake phrase "hi speel"). Kid safety and low cost are the top two constraints; prefer boring, reliable choices.
+Sparky is a voice AI companion for a 4-year-old. The project is "Sparky"; the character the child talks to is **Speel** (wake word "speel"; build it with `./firmware/build.sh "speel"`). Kid safety and low cost are the top two constraints; prefer boring, reliable choices.
 
 ## Hardware
 - **Face/voice device:** Waveshare ESP32-S3-Touch-AMOLED-2.16 (480×480 AMOLED, mic with AEC, speaker, IMU, button). Runs upstream xiaozhi-esp32 firmware (board `waveshare/esp32-s3-touch-amoled-2.16`, ESP-IDF ≥ 6.0.1).
@@ -10,8 +10,8 @@ Sparky is a voice AI companion for a 4-year-old. The project is "Sparky"; the ch
 
 ## Architecture (phase 1)
 ESP32 ⇄ WebSocket/Opus ⇄ xiaozhi-esp32-server (lean, no Docker, on HP)
-  → STT: Groq whisper-large-v3-turbo
-  → LLM: Groq (`GROQ_LLM_MODEL`), with a manual switch to Mac Ollama
+  → STT: Groq whisper-large-v3 (English, child-context prompt, volume-normalized; VAD waits 1 s of silence)
+  → LLM: Mac Ollama (`OLLAMA_MODEL`) while reachable, else Groq (`GROQ_LLM_MODEL`, then `GROQ_FALLBACK_MODEL`)
   → TTS: local Kokoro HTTP (`server/tts/speel_tts.py`, 127.0.0.1:$TTS_PORT/synthesize), voice `af_heart` pitched up 2 semitones
 
 Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at the pinned `XIAOZHI_SERVER_REF` into /opt/sparky. Our only touchpoint is `data/.config.yaml` (an overlay merged over upstream `config.yaml`) plus `data/sparky-base-prompt.txt`, both rendered by `server/scripts/render_config.py`. The one addition: `server/providers/` is copied into upstream's `core/providers/` (new files only, never edits to upstream files).
@@ -23,8 +23,9 @@ Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at th
 - `server/install-hp.sh` — idempotent installer (uv, Python 3.10, CPU-only torch, Kokoro TTS, systemd)
 - `server/tts/` — Speel's voice service (Kokoro + Piper's espeak phonemizer) and its checksum-verified model download
 - `server/systemd/*.service` — templated units (`@PREFIX@` etc.)
-- `server/providers/asr/sparky_groq.py` — Groq Whisper with a fixed `language` (upstream's sends none)
-- `server/providers/llm/sparky_groq/` — Groq LLM with `reasoning_effort: low`, and upstream's Chinese few-shot examples translated to English (otherwise Speel answers in Chinese)
+- `server/providers/asr/sparky_groq.py` — Groq Whisper with a fixed `language`, a child-context `prompt` and volume normalization
+- `server/providers/sparky_patches.py` — runtime fixes to upstream (0.6 s audio head start, also rebuilt after a mid-reply pause; with firmware patch 0003's ~1 s playback buffer, keeps face animation from starving the speaker)
+- `server/providers/llm/sparky_groq/` — Groq LLM: `reasoning_effort: low`; upstream's Chinese few-shot examples translated to English (otherwise Speel answers in Chinese); only 3 tools (direct_answer, exit, volume) and the last 6 exchanges sent; on a 429, falls back to `GROQ_FALLBACK_MODEL`, and when every model is rate-limited Speel says he's sleepy and hangs up; bye phrases get one of 10 fixed goodbyes (`GOODBYES`) with no Groq call
 - `server/scripts/backup-to-nas.sh` — config + logs to the NAS
 - `firmware/README.md` — building and flashing with our OTA URL
 - `firmware/faces/` — Speel's animated face GIFs (420×420 max; see its README)
@@ -32,12 +33,12 @@ Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at th
 - `docs/decisions.md` — why things are the way they are. Read it before changing direction.
 
 ## Free-tier budgets (checked Oct 2026)
-- Groq free plan: Whisper 20 RPM / 2K RPD / 28.8K audio sec per day; gpt-oss / qwen ≈ 30 RPM, 1K RPD, 8K TPM, 200K TPD. Keep prompts small, because the 8K TPM is the real cap.
+- Groq free plan: Whisper 20 RPM / 2K RPD / 28.8K audio sec per day; gpt-oss / qwen ≈ 30 RPM, 1K RPD, 8K TPM, 200K TPD. The real cap is 200K tokens/day per model: at ~1.2–1.4K tokens per reply that's ~150 replies on `gpt-oss-20b`, plus as many again on the fallback `gpt-oss-120b` (measured Oct 2026; was ~1.9K/reply before trimming tools and history). Keep prompts small.
 - Groq TTS (Orpheus) is only 100 RPD, which is why TTS is local.
 
 ## Known risks / open items
 - [ ] Verify torch 2.2.2 CPU wheel runs on the no-AVX Celeron (the installer smoke-tests it). If not, switch Silero VAD to ONNX or try a different torch build.
-- [ ] Upstream has no automatic LLM fallback. Switching to Mac Ollama is manual (`LLM_MODULE`). An automatic Groq → Ollama failover on 429 would be a small provider wrapper.
+- [x] Groq → Groq failover on 429 (`sparky_groq`, `GROQ_FALLBACK_MODEL`). Switching to Mac Ollama is still manual (`LLM_MODULE`).
 - [ ] English wake word: pick a model via `scripts/build.py --list-wake-words` and test it with the child's voice.
 - [ ] Time Kokoro TTS on the Celeron (`curl` the /synthesize endpoint). If a sentence takes more than ~1.5 s, go back to Piper there (the Piper setup is in git history before the Kokoro switch).
 - [ ] Turn on `server.auth` before anything is exposed beyond the LAN.

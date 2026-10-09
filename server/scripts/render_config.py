@@ -28,7 +28,9 @@ DEFAULTS = {
     "SERVER_WS_PORT": "8000",
     "SERVER_HTTP_PORT": "8003",
     "TTS_PORT": "5000",
+    "GROQ_FALLBACK_MODEL": "openai/gpt-oss-120b",
 }
+PORTS = ["SERVER_WS_PORT", "SERVER_HTTP_PORT", "TTS_PORT"]
 
 REQUIRED = [
     "SERVER_LAN_IP",
@@ -68,7 +70,7 @@ def render(env: dict[str, str]) -> str:
         sys.exit("LLM_MODULE must be GroqLLM or MacOllamaLLM")
 
     values = {**DEFAULTS, **env}
-    for key in DEFAULTS:
+    for key in PORTS:
         if not values[key].isdigit():
             sys.exit(f"{key} must be a port number")
     values["PERSONA_IDENTITY"] = indent(IDENTITY.read_text(), 2)
