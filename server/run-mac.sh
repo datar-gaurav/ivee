@@ -77,11 +77,11 @@ log "Rendering Sparky config and copying Sparky providers into the server"
 python3 "$REPO_DIR/server/scripts/render_config.py" --env "$ENV_FILE" --out "$APP_DIR/data"
 cp -R "$REPO_DIR/server/providers/." "$APP_DIR/core/providers/"
 
-log "Starting Speel's voice (Kokoro ${TTS_VOICE:-am_puck}) on 127.0.0.1:$TTS_PORT"
+log "Starting Speel's voice (Kokoro ${TTS_VOICE:-af_heart}) on 127.0.0.1:$TTS_PORT"
 "$PREFIX/venv-tts/bin/python" "$REPO_DIR/server/tts/speel_tts.py" --host 127.0.0.1 --port "$TTS_PORT" \
   --model "$PREFIX/voices/kokoro-v1.0.onnx" --voices "$PREFIX/voices/voices-v1.0.bin" \
-  --voice "${TTS_VOICE:-am_puck}" --speed "${TTS_SPEED:-0.9}" --pitch "${TTS_PITCH:-1}" \
-  --boost "${TTS_BOOST:-2.5}" &
+  --voice "${TTS_VOICE:-af_heart}" --speed "${TTS_SPEED:-0.9}" --pitch "${TTS_PITCH:-1.12}" \
+  --boost "${TTS_BOOST:-2.0}" --highpass "${TTS_HIGHPASS:-300}" --presence "${TTS_PRESENCE:-5}" &
 tts_pid=$!
 trap 'kill "$tts_pid" 2>/dev/null || true' EXIT
 

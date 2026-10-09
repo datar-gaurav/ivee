@@ -12,7 +12,7 @@ Sparky is a voice AI companion for a 4-year-old. The project is "Sparky"; the ch
 ESP32 ⇄ WebSocket/Opus ⇄ xiaozhi-esp32-server (lean, no Docker, on HP)
   → STT: Groq whisper-large-v3-turbo
   → LLM: Groq (`GROQ_LLM_MODEL`), with a manual switch to Mac Ollama
-  → TTS: local Kokoro HTTP (`server/tts/speel_tts.py`, 127.0.0.1:$TTS_PORT/synthesize), voice `am_puck`
+  → TTS: local Kokoro HTTP (`server/tts/speel_tts.py`, 127.0.0.1:$TTS_PORT/synthesize), voice `af_heart` pitched up 2 semitones
 
 Upstream xiaozhi-esp32-server is **not vendored**. The installer clones it at the pinned `XIAOZHI_SERVER_REF` into /opt/sparky. Our only touchpoint is `data/.config.yaml` (an overlay merged over upstream `config.yaml`) plus `data/sparky-base-prompt.txt`, both rendered by `server/scripts/render_config.py`. The one addition: `server/providers/` is copied into upstream's `core/providers/` (new files only, never edits to upstream files).
 

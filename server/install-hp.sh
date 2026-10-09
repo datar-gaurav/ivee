@@ -96,8 +96,9 @@ log "Installing systemd units"
 for unit in sparky-tts.service sparky-server.service; do
   sed -e "s|@PREFIX@|$PREFIX|g" -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@USER@|$SERVICE_USER|g" \
       -e "s|@REPO_DIR@|$REPO_DIR|g" -e "s|@TTS_PORT@|${TTS_PORT:-5000}|g" \
-      -e "s|@TTS_VOICE@|${TTS_VOICE:-am_puck}|g" -e "s|@TTS_SPEED@|${TTS_SPEED:-0.9}|g" \
-      -e "s|@TTS_PITCH@|${TTS_PITCH:-1}|g" -e "s|@TTS_BOOST@|${TTS_BOOST:-2.5}|g" \
+      -e "s|@TTS_VOICE@|${TTS_VOICE:-af_heart}|g" -e "s|@TTS_SPEED@|${TTS_SPEED:-0.9}|g" \
+      -e "s|@TTS_PITCH@|${TTS_PITCH:-1.12}|g" -e "s|@TTS_BOOST@|${TTS_BOOST:-2.0}|g" \
+      -e "s|@TTS_HIGHPASS@|${TTS_HIGHPASS:-300}|g" -e "s|@TTS_PRESENCE@|${TTS_PRESENCE:-5}|g" \
       "$REPO_DIR/server/systemd/$unit" > "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
