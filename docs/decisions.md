@@ -45,3 +45,6 @@ Installing ESP-IDF was the biggest hurdle for new users. Upstream's Wi-Fi setup 
 
 ## D12: One generic extra provider, not provider-specific integrations
 Groq's free tier caps replies at roughly 150 a day per model. Other providers have bigger free quotas, but they change often and some (NVIDIA NIM) are for testing and evaluation only. Cerebras looked good until its large quota turned out not to be the free tier. So instead of integrating one company, there's one optional slot for any OpenAI-compatible API (`EXTRA_LLM_BASE_URL`, `EXTRA_LLM_MODEL`, `EXTRA_LLM_API_KEY`), tried before Groq. Any failure (rate limit, bad key, outage, rejected request) skips it for the retry-after or 60 s and Groq answers. Groq stays the documented default and is always required for speech-to-text.
+
+## D13: The server announces itself as ivee.local
+The first real install showed that typing a Custom OTA URL on the device's setup page is easy to get wrong (the Advanced tab has its own Save). The firmware can resolve `.local` names (lwIP mDNS queries), and the release firmware's default URL is already `ivee.local`, so the server now publishes that name: avahi on Linux (`ivee-mdns.service`), `dns-sd` in run-mac.sh. Devices then need only Wi-Fi. Limits: one Ivee server per network, the device assumes port 8003, and networks that block multicast need the typed URL.

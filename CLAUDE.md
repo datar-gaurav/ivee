@@ -17,7 +17,7 @@ Settings live outside the repo in `/opt/ivee/config/ivee.env` (Mac: `~/.ivee/con
 
 The upstream server (github.com/xinnan-tech/xiaozhi-esp32-server) is **not vendored**. The installer clones it at the pinned `IVEE_SERVER_REF` into /opt/ivee/ivee-esp32-server. Upstream names that are protocol or code (`/xiaozhi/ota/`, `/xiaozhi/v1/`, `main/xiaozhi-server`, the clone URLs) stay as they are. Our only touchpoint is `data/.config.yaml` (an overlay merged over upstream `config.yaml`) plus `data/ivee-base-prompt.txt`, both rendered by `server/scripts/render_config.py`. The one addition: `server/providers/` is copied into upstream's `core/providers/` (new files only, never edits to upstream files).
 
-Firmware reaches users prebuilt: a `v*` tag runs `.github/workflows/release.yml`, which builds `./firmware/build.sh --release`, attaches it to a GitHub release and publishes the browser flasher (`docs/flash/`, ESP Web Tools) on GitHub Pages. The release firmware's default OTA URL is `http://ivee.local:8003/xiaozhi/ota/`; users enter their server's URL on the device's Wi-Fi setup page (Advanced → Custom OTA URL, stored in NVS).
+Firmware reaches users prebuilt: a `v*` tag runs `.github/workflows/release.yml`, which builds `./firmware/build.sh --release`, attaches it to a GitHub release and publishes the browser flasher (`docs/flash/`, ESP Web Tools) on GitHub Pages. The release firmware's default OTA URL is `http://ivee.local:8003/xiaozhi/ota/`, and the server publishes `ivee.local` over mDNS (`ivee-mdns.service` with avahi on Linux, `dns-sd` in run-mac.sh), so devices need no setup beyond Wi-Fi. Fallback: the device's Wi-Fi setup page (BOOT within ~3 s of power-on reopens it), Advanced → Custom OTA URL, stored in NVS.
 
 ## Layout
 - `install.sh` — one-line bootstrap (`curl … | sudo bash`): clones to /opt/ivee/repo, runs `server/install.sh`
@@ -29,9 +29,9 @@ Firmware reaches users prebuilt: a `v*` tag runs `.github/workflows/release.yml`
 - `server/run-mac.sh` — the same stack in the foreground on a Mac
 - `server/config_ui/` — config page: stdlib `http.server`, PBKDF2 password in `config/ui-password`, never returns the API key
 - `server/scripts/render_config.py` — validation (`problems()`) and rendering, shared with the config page
-- `server/scripts/apply.sh`, `backup.sh` — apply saved settings (root, via `ivee-apply.path`); nightly backup to `BACKUP_TARGET`
+- `server/scripts/apply.sh`, `backup.sh`, `publish-mdns.sh` — apply saved settings (root, via `ivee-apply.path`); nightly backup to `BACKUP_TARGET`; publish `ivee.local` (ivee-mdns)
 - `server/tts/` — Speel's voice service (Kokoro + Piper's espeak phonemizer; reads TTS_* from ivee.env; requests may override them for previews) and its checksum-verified model download
-- `server/systemd/` — templated units (`@PREFIX@` etc.): ivee-server, ivee-tts, ivee-config, ivee-apply.{path,service}
+- `server/systemd/` — templated units (`@PREFIX@` etc.): ivee-server, ivee-tts, ivee-config, ivee-apply.{path,service}, ivee-mdns
 - `server/providers/asr/ivee_groq.py` — Groq Whisper with a fixed `language`, a child-context `prompt` and volume normalization
 - `server/providers/ivee_patches.py` — runtime fixes to upstream (0.6 s audio head start, also rebuilt after a mid-reply pause; with firmware patch 0003's ~1 s playback buffer, keeps face animation from starving the speaker); sends a random face variant (`happy_02`) instead of the plain emotion, and the hi/bye/talking faces
 - `server/providers/llm/ivee_groq/` — Groq LLM: `reasoning_effort: low`; upstream's Chinese few-shot examples translated to English (otherwise Speel answers in Chinese); only 3 tools (direct_answer, exit, volume) and the last 6 exchanges sent; on a 429, falls back to `GROQ_FALLBACK_MODEL`, and when every model is rate-limited Speel says it's sleepy and hangs up; bye phrases get one of 10 fixed goodbyes (`GOODBYES`) with no Groq call; `local_model` (Ollama) and `extra_model` (any OpenAI-compatible API) are tried first, and any failure of those falls through to Groq
@@ -48,7 +48,8 @@ Firmware reaches users prebuilt: a `v*` tag runs `.github/workflows/release.yml`
 ## Known risks / open items
 - [ ] Verify torch 2.2.2 CPU wheel runs on the no-AVX Celeron (the installer smoke-tests it). If not, switch Silero VAD to ONNX or try a different torch build.
 - [ ] The Linux installer, the config page's apply flow and the release workflow are untested end to end (written Oct 2026; tested: unit tests, shellcheck, the Mac path). Test on a fresh Debian VM and a Raspberry Pi, and run the release workflow once.
-- [ ] Does the device resolve `ivee.local` (lwIP mDNS queries)? Untested; the docs tell users to enter the IP.
+- [x] The device resolves `ivee.local` (lwIP mDNS queries; verified Oct 2026 end to end on a real board: browser flash, Wi-Fi setup only, run-mac.sh publishing ivee.local, conversation works). Untested: avahi on a real Linux server (works in a container), networks that block multicast.
+- [ ] The Wi-Fi setup page's Advanced tab Save didn't reach the device once (no "Saved settings" in the serial log even though the user saw a confirmation). Not reproduced or explained.
 - [ ] English wake word: test "speel" (MultiNet7 phrase) with children's voices; consider a trained WakeNet model.
 - [ ] Time Kokoro TTS on a 2 GB Celeron and a Pi 4 (`curl` the /synthesize endpoint). If a sentence takes more than ~1.5 s, offer Piper there (the Piper setup is in git history before the Kokoro switch).
 - [ ] Turn on `server.auth` before anything is exposed beyond the LAN.

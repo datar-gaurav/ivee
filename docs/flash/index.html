@@ -30,7 +30,7 @@
     <p class="lead">For the Waveshare ESP32-S3-Touch-AMOLED-2.16. Set up the <a href="https://github.com/datar-gaurav/ivee#quick-start">Ivee server</a> first: you'll need its address.</p>
     <ol>
       <li>
-        Plug the device into this computer with a USB-C <strong>data</strong> cable. Use Chrome or Edge on a desktop computer.
+        Plug the device into this computer with a USB-C <strong>data</strong> cable. Use Chrome or Edge on a desktop computer. When the browser lists ports, pick the one called <strong>USB JTAG/serial debug unit</strong>.
         <esp-web-install-button manifest="firmware/manifest.json">
           <span slot="unsupported">This browser can't flash devices. Open this page in Chrome or Edge on a desktop computer.</span>
           <span slot="not-allowed">Flashing needs a secure page (https).</span>
@@ -41,12 +41,12 @@
         The device restarts and opens a Wi-Fi hotspot called <code>Ivee-XXXX</code>. Join it from your phone or computer; the setup page opens (if not, go to <code>http://192.168.4.1</code>).
       </li>
       <li>
-        On the <strong>Advanced</strong> tab, set <strong>Custom OTA URL</strong> to the device address shown on your server's config page, and press Save:
-        <p><code>http://&lt;server-ip&gt;:8003/xiaozhi/ota/</code></p>
-        <p class="note">Without it the device looks for <code>ivee.local</code>, which only works if your server's hostname is <code>ivee</code> and your network resolves .local names.</p>
+        Pick your home Wi-Fi, enter its password and press Connect. The device joins your Wi-Fi and finds your Ivee server by itself (the server announces itself as <code>ivee.local</code>). Say <strong>"Speel"</strong> to start talking.
       </li>
       <li>
-        Back on the Wi-Fi tab, pick your home Wi-Fi, enter its password and press Connect. The device restarts, joins your Wi-Fi and connects to your server. Say <strong>"Speel"</strong> to start talking.
+        <strong>Only if the screen shows a connection error:</strong> unplug the device, plug it back in and press its <strong>BOOT</strong> button within 3 seconds to reopen the setup hotspot. On the <strong>Advanced</strong> tab, set <strong>Custom OTA URL</strong> to the address on your server's config page and press that tab's Save. Wait for "Configuration saved" before going back to the Wi-Fi tab.
+        <p><code>http://&lt;server-ip&gt;:8003/xiaozhi/ota/</code></p>
+        <p class="note">Some networks (guest Wi-Fi, some mesh routers) block the .local names the device uses to find the server.</p>
       </li>
     </ol>
     <p class="note">Prefer the command line? Download <code>ivee-merged.bin</code> from the <a href="https://github.com/datar-gaurav/ivee/releases/latest">latest release</a> and run <code>esptool.py --chip esp32s3 write_flash 0x0 ivee-merged.bin</code>.</p>

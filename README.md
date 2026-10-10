@@ -28,9 +28,9 @@ curl -fsSL https://raw.githubusercontent.com/datar-gaurav/ivee/main/install.sh |
 ```
 It takes 10–20 minutes and ends by printing the config page's address and password.
 
-**2. Finish setup on the config page.** Open `http://<server-ip>:8088`, sign in, paste your Groq API key and press **Save and apply**. The page also shows the device URL you'll need next.
+**2. Finish setup on the config page.** Open `http://<server-ip>:8088`, sign in, paste your Groq API key and press **Save and apply**.
 
-**3. Flash the device.** Open the [web installer](https://datar-gaurav.github.io/ivee/) in Chrome or Edge, plug in the device and press Install. When it restarts, join its `Ivee-XXXX` Wi-Fi hotspot. On the setup page's **Advanced** tab, set **Custom OTA URL** to the address from the config page, then connect it to your Wi-Fi.
+**3. Flash the device.** Open the [web installer](https://datar-gaurav.github.io/ivee/) in Chrome or Edge, plug in the device and press Install. When it restarts, join its `Ivee-XXXX` Wi-Fi hotspot and connect it to your home Wi-Fi. It finds the server by itself: the server announces itself on your network as `ivee.local`.
 
 **4. Say "Speel".**
 
@@ -66,7 +66,7 @@ It runs in the foreground; Ctrl-C stops it. It prints the config page's address 
 - **Backups:** set a backup folder on the config page, then add `30 2 * * * /opt/ivee/repo/server/scripts/backup.sh` to root's crontab.
 
 ## Troubleshooting
-- **The device can't reach the server:** check the Custom OTA URL you entered on the device (re-flashing with erase brings back the Wi-Fi setup hotspot), and that the server's address hasn't changed. Reserve the address on your router.
+- **The device shows a connection error:** your network may block `.local` names (guest Wi-Fi, some mesh routers), or there's a second Ivee server on it. Unplug the device, plug it back in and press **BOOT** within 3 seconds to reopen the setup hotspot; on its **Advanced** tab set **Custom OTA URL** to the address on the config page and press that tab's Save. Also reserve the server's address on your router so it doesn't change.
 - **`Illegal instruction` during install:** the CPU is too old for the PyTorch build. See the open item in [CLAUDE.md](CLAUDE.md).
 - **Speel is sleepy all the time:** the Groq free quota ran out. It resets daily.
 - **Choppy voice:** read [firmware/faces/README.md](firmware/faces/README.md) before adding bigger or faster faces.

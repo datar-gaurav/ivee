@@ -7,6 +7,7 @@
 #   - ivee-tts.service    : the character's voice, Kokoro TTS on 127.0.0.1
 #   - ivee-config.service : the config page on :8088 (API key, voice, character)
 #   - ivee-apply.path     : applies what the config page saves (server/scripts/apply.sh)
+#   - ivee-mdns.service   : publishes this server as ivee.local, so devices find it without setup
 #
 # Usage:   sudo ./server/install.sh                    (or the one-line install.sh in the repo root)
 #          sudo ./server/install.sh --reset-password   (new config page password)
@@ -60,7 +61,7 @@ free_gb=$(df -BG --output=avail / | tail -1 | tr -dc '0-9')
 
 log "Installing system packages"
 apt-get update -qq
-apt-get install -y -qq git curl ca-certificates ffmpeg libopus0 rsync python3 >/dev/null
+apt-get install -y -qq git curl ca-certificates ffmpeg libopus0 rsync python3 avahi-daemon avahi-utils >/dev/null
 
 if (( mem_mb < 3000 )) && ! swapon --show | grep -q .; then
   log "Adding a 2 GB swap file (low-RAM machine)"
@@ -140,15 +141,16 @@ else
 fi
 
 log "Installing systemd units"
-for unit in ivee-tts.service ivee-server.service ivee-config.service ivee-apply.service ivee-apply.path; do
+for unit in ivee-tts.service ivee-server.service ivee-config.service ivee-apply.service ivee-apply.path \
+            ivee-mdns.service; do
   sed -e "s|@PREFIX@|$PREFIX|g" -e "s|@APP_DIR@|$APP_DIR|g" -e "s|@USER@|$SERVICE_USER|g" \
       -e "s|@REPO_DIR@|$REPO_DIR|g" -e "s|@UI_PORT@|$UI_PORT|g" \
       "$REPO_DIR/server/systemd/$unit" > "/etc/systemd/system/$unit"
 done
 systemctl daemon-reload
-systemctl enable --now ivee-tts.service ivee-config.service ivee-apply.path
+systemctl enable --now ivee-tts.service ivee-config.service ivee-apply.path avahi-daemon.service ivee-mdns.service
 systemctl enable ivee-server.service
-systemctl restart ivee-tts.service ivee-config.service
+systemctl restart ivee-tts.service ivee-config.service ivee-mdns.service
 $configured && systemctl restart ivee-server.service
 
 # Only now, so a failed install never loses a password it didn't print.
@@ -171,6 +173,7 @@ cat <<EOF
 EOF
 [[ -n "$password" ]] && echo "  Password         : $password   (shown once; reset with: sudo $REPO_DIR/server/install.sh --reset-password)"
 cat <<EOF
-  Device OTA URL   : http://${ip_now}:${http_port:-8003}/xiaozhi/ota/   (enter it on the device's Wi-Fi setup page)
+  Device           : finds this server as ivee.local by itself. If it doesn't, enter
+                     http://${ip_now}:${http_port:-8003}/xiaozhi/ota/ as the Custom OTA URL on its Wi-Fi setup page
   Logs             : journalctl -u ivee-server -f
 EOF

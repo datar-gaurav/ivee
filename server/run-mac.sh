@@ -125,10 +125,17 @@ set +a
 cat <<EOF
 
 Starting Ivee's server. Ctrl-C to stop. After saving on the config page, re-run this script.
-  Device OTA URL : http://${SERVER_LAN_IP}:${SERVER_HTTP_PORT}/xiaozhi/ota/
+  Device         : finds this Mac as ivee.local; or enter http://${SERVER_LAN_IP}:${SERVER_HTTP_PORT}/xiaozhi/ota/
   WebSocket      : ws://${SERVER_LAN_IP}:${SERVER_WS_PORT}/xiaozhi/v1/
   If macOS asks whether Python may accept incoming connections, click Allow.
 EOF
+
+# Let devices find this server as ivee.local, the release firmware's default OTA URL.
+if [[ "$(scutil --get LocalHostName 2>/dev/null)" != ivee ]]; then
+  dns-sd -P "Ivee server" _http._tcp local "$SERVER_HTTP_PORT" ivee.local "$SERVER_LAN_IP" >/dev/null 2>&1 &
+  mdns_pid=$!
+  trap 'kill "$tts_pid" "$ui_pid" "$mdns_pid" 2>/dev/null || true' EXIT
+fi
 
 # caffeinate keeps the Mac awake (lid open) while the server runs.
 cd "$APP_DIR"

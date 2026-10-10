@@ -1,0 +1,15 @@
+[Unit]
+Description=Publish this server as ivee.local, the release firmware's default (server/scripts/publish-mdns.sh)
+After=avahi-daemon.service network-online.target
+Requires=avahi-daemon.service
+
+[Service]
+Type=simple
+User=@USER@
+ExecStart=@REPO_DIR@/server/scripts/publish-mdns.sh @PREFIX@/config/ivee.env
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

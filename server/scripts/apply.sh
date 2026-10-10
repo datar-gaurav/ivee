@@ -29,7 +29,7 @@ if ! output="$(as_user python3 "$REPO_DIR/server/scripts/render_config.py" \
   status false "${output##*$'\n'}"
   exit 1
 fi
-if ! output="$(systemctl restart ivee-tts.service ivee-server.service 2>&1)"; then
+if ! output="$(systemctl restart ivee-tts.service ivee-server.service ivee-mdns.service 2>&1)"; then
   status false "Restart failed: ${output##*$'\n'}"
   exit 1
 fi
