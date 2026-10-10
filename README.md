@@ -21,6 +21,13 @@ A child says **"Speel"**, and Speel, a friendly little robot on an AMOLED screen
 - A computer with Chrome or Edge, to flash the device once.
 
 ## Quick start
+**With Claude Code:** paste this, and it walks you through every step below and reads the logs if something goes wrong:
+```
+Set up Ivee for me: follow https://github.com/datar-gaurav/ivee/blob/main/SETUP_WITH_CLAUDE.md
+```
+
+**By hand:**
+
 
 **1. Install the server.** On the server:
 ```bash

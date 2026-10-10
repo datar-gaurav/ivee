@@ -2,6 +2,8 @@
 
 Ivee is an open-source (MIT) voice AI companion for young children. The project is "Ivee"; the character the child talks to is **Speel** (wake word "speel"). Kid safety and low cost are the top two constraints; prefer boring, reliable choices.
 
+**Helping someone install or troubleshoot Ivee (not develop it)?** Follow [SETUP_WITH_CLAUDE.md](SETUP_WITH_CLAUDE.md).
+
 ## Hardware
 - **Face/voice device:** Waveshare ESP32-S3-Touch-AMOLED-2.16 (480×480 AMOLED, mic with AEC, speaker, IMU, button). Runs upstream xiaozhi-esp32 firmware, checked out as `~/esp/ivee-esp32` (board `waveshare/esp32-s3-touch-amoled-2.16`, ESP-IDF ≥ 6.0.1).
 - **Server:** any 64-bit Debian/Ubuntu/Raspberry Pi OS box with ≥ 2 GB RAM (`server/install.sh`), or a Mac for development (`server/run-mac.sh`). The maintainer's reference box is an HP Stream Mini 200-010 (Celeron 2957U, no AVX, 2 GB), with backups to a QNAP NAS.
